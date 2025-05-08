@@ -1,0 +1,57 @@
+services:
+  # Ollama Service
+  ollama:
+    container_name: ollama_server
+    ports:
+      - "11434:11434"
+    build: ollama
+    volumes:
+      - ollama-vol:/ollama
+    networks:
+      - ollama-net
+    entrypoint: ["/usr/bin/bash", "/pull-llama3.sh"]
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - OLLAMA_MODELS=/ollama
+    runtime: nvidia
+  # Backend part
+  api:
+    container_name: fastapi_server
+    ports:
+      - "8080:8000"
+    build: ./api
+    volumes:
+      - ./api:/app
+      - orchestrator_venv_vol:/app/venv
+    networks:
+      - backend-net
+      - ollama-net
+ 
+networks:
+  ollama-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  
+
+volumes:
+  ollama-vol:
+    driver: local
+  db-vol:
+    driver: local
+  pgadmin-vol:
+    driver: local
+  orchestrator_venv_vol:
+    driver: local
+
