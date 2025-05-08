@@ -82,7 +82,7 @@ Each report includes:
 
 - ✅ Actionable investment recommendations (short, mid, long term)
 
-```json
+```
 📊 Ticker: THYAO.IS
 🔍 Technical Summary:
 Signal: Neutral
