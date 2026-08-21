@@ -21,6 +21,17 @@ An **agentic multi-agent investment analysis system** for BIST100 stocks — a L
 
 ---
 
+## 📸 Screenshots
+
+The Streamlit UI's "Inner thoughts" panel, live during a real `THYAO.IS` run — each tab updates in real time as that agent works:
+
+| | |
+|---|---|
+| ![Technical tab streaming live tool calls and reasoning](./documents/ss1.png) **Technical** — tool calls/results streaming in above the tabs, technical reasoning appearing live below | ![News Risk tab showing streamed risk assessment](./documents/ss2.png) **News Risk** — risk score and reasoning streaming in as the news agent works |
+| ![PDP Filing tab showing a streamed disclosure summary](./documents/ss3.png) **PDP Filing** — the disclosure summary streaming in from the PDP agent | ![Completed merged report with all sections rendered](./documents/ss4.png) **Merging report** — the final merged report, complete, with the "Analysis complete" status |
+
+---
+
 ## 🧱 Architecture
 
 ```mermaid
