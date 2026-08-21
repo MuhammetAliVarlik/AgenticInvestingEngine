@@ -154,3 +154,11 @@ cython_debug/
 
 # Other Files
 docker-compose.env
+
+# Prediction history database (bind-mounted at ./data, see docker-compose.yml)
+/data/
+*.db
+*.db-journal
+
+# Regenerable trained RSI models (see api/tools/stockPriceAnaliserTool.py caching)
+api/models/*.joblib

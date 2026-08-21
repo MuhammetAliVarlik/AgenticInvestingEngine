@@ -22,9 +22,9 @@ def stock_news(ticker: str) -> list:
         # Process and return formatted articles
         formatted_news = []
         for article in selected_news:
-            article = article.get("content")
+            content = article.get("content") or {}
             formatted_article = {
-                "Summary": article.get("summary", "Summary not available"),
+                "Summary": content.get("summary", "Summary not available"),
             }
             formatted_news.append(formatted_article)
 

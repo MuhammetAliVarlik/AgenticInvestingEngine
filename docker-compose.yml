@@ -34,23 +34,34 @@ services:
     volumes:
       - ./api:/app
       - orchestrator_venv_vol:/app/venv
+      - ./data:/app/data
+    env_file:
+      - ./api/.env
     networks:
       - backend-net
       - ollama-net
- 
+  # Streamlit UI
+  ui:
+    container_name: streamlit_ui
+    ports:
+      - "8501:8501"
+    build: ./ui
+    environment:
+      - API_BASE_URL=http://fastapi_server:8000
+    networks:
+      - backend-net
+    depends_on:
+      - api
+
 networks:
   ollama-net:
     driver: bridge
   backend-net:
     driver: bridge
-  
+
 
 volumes:
   ollama-vol:
-    driver: local
-  db-vol:
-    driver: local
-  pgadmin-vol:
     driver: local
   orchestrator_venv_vol:
     driver: local
