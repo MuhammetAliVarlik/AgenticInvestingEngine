@@ -27,8 +27,14 @@ from investing_engine import __version__
 from investing_engine.agents.graph import AnalysisResult, build_graph, stream_analysis
 from investing_engine.agents.llm import build_chat_model
 from investing_engine.agents.session import engine_tools
+from investing_engine.api.security import (
+    Authenticator,
+    RequestRateLimiter,
+    SecurityHeadersMiddleware,
+    validate_security_settings,
+)
 from investing_engine.config import Settings, get_settings
-from investing_engine.mcp_server.server import LOCAL_PRINCIPAL, build_server
+from investing_engine.mcp_server.server import build_server
 from investing_engine.observability.budget import (
     RATE_LIMIT_ERRORS,
     BudgetExceededError,
@@ -105,9 +111,11 @@ def _remember(
     return upload.id
 
 
-def principal() -> str:
-    """Identity of the caller. Replaced by the authentication layer when deployed."""
-    return LOCAL_PRINCIPAL
+def principal(request: Request) -> str:
+    """Authenticated identity of the caller, rate-limited per identity."""
+    identity: str = request.app.state.authenticator(request)
+    request.app.state.rate_limiter.check(identity)
+    return identity
 
 
 Principal = Annotated[str, Depends(principal)]
@@ -177,6 +185,8 @@ def create_app(
     model_factory: ModelFactory | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    validate_security_settings(settings)
+    production = settings.environment == "production"
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -193,6 +203,8 @@ def create_app(
             max_tokens=settings.daily_tokens_per_user,
         )
         app.state.breaker = CircuitBreaker(settings.rate_limit_cooldown_seconds)
+        app.state.authenticator = Authenticator(settings)
+        app.state.rate_limiter = RequestRateLimiter(per_minute=settings.requests_per_minute)
         yield
         app.state.tracer.shutdown()
         if owned:
@@ -202,9 +214,11 @@ def create_app(
         title="Investing Engine API",
         version=__version__,
         lifespan=lifespan,
-        docs_url="/docs",
+        docs_url=None if production else "/docs",
+        openapi_url=None if production else "/openapi.json",
         redoc_url=None,
     )
+    app.add_middleware(SecurityHeadersMiddleware, hsts=production)
 
     @app.middleware("http")
     async def correlate(request: Request, call_next: Any) -> Any:
@@ -314,11 +328,11 @@ def create_app(
         return {"status": "ok", "version": __version__}
 
     @app.get("/instruments", tags=["reference"])
-    def instruments() -> list[dict[str, Any]]:
+    def instruments(caller: Principal) -> list[dict[str, Any]]:
         return describe_universe()
 
     @app.get("/sources", tags=["reference"])
-    def sources(market: Market) -> list[dict[str, str]]:
+    def sources(market: Market, caller: Principal) -> list[dict[str, str]]:
         return [
             {"name": s.name, "url": s.url, "terms": s.terms, "attribution": s.attribution}
             for s in market.active_sources()
@@ -476,7 +490,9 @@ def create_app(
         }
 
     @app.get("/history/{symbol}", tags=["analysis"])
-    def history(symbol: str, market: Market, limit: int = 100) -> list[dict[str, Any]]:
+    def history(
+        symbol: str, market: Market, caller: Principal, limit: int = 100
+    ) -> list[dict[str, Any]]:
         try:
             instrument = resolve(symbol)
         except UnknownSymbolError as exc:

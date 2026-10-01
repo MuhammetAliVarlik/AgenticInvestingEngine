@@ -162,3 +162,5 @@ docker-compose.env
 
 # Regenerable trained RSI models (see api/tools/stockPriceAnaliserTool.py caching)
 api/models/*.joblib
+# Streamlit secrets (OIDC client credentials)
+ui/.streamlit/secrets.toml

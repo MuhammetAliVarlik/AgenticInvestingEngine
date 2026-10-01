@@ -12,7 +12,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /src
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN pip install .
+RUN pip install ".[observability]"
 
 # ---- Runtime: minimal image, unprivileged user ---------------------------------
 FROM python:3.11-slim AS runtime

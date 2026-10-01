@@ -17,6 +17,7 @@ import httpx
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from auth import api_headers, require_user, sign_out_control
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
 REQUEST_TIMEOUT_SECONDS = 900.0
@@ -37,8 +38,10 @@ AGENTS = {
 
 
 @st.cache_data(ttl=3600)
-def fetch_instruments() -> list[dict[str, Any]]:
-    response = httpx.get(f"{API_BASE_URL}/instruments", timeout=15)
+def fetch_instruments(_headers: dict[str, str]) -> list[dict[str, Any]]:
+    # The leading underscore excludes headers from Streamlit's cache key; the
+    # instrument list is identical for every user.
+    response = httpx.get(f"{API_BASE_URL}/instruments", headers=_headers, timeout=15)
     response.raise_for_status()
     return response.json()
 
@@ -46,6 +49,7 @@ def fetch_instruments() -> list[dict[str, Any]]:
 def upload(endpoint: str, symbol: str, file_name: str, content: bytes) -> dict[str, Any]:
     response = httpx.post(
         f"{API_BASE_URL}/{endpoint}",
+        headers=HEADERS,
         data={"symbol": symbol},
         files={"file": (file_name, content)},
         timeout=180,
@@ -62,12 +66,13 @@ def stream_analysis(
     with httpx.stream(
         "POST",
         f"{API_BASE_URL}/analyses/stream",
+        headers=HEADERS,
         json={"symbols": symbols, "datasets": datasets, "documents": documents},
         timeout=REQUEST_TIMEOUT_SECONDS,
     ) as response:
-        if response.status_code == 422:
+        if response.status_code in (422, 429):
             response.read()
-            raise ValueError(response.json().get("detail", "Invalid request"))
+            raise ValueError(response.json().get("detail", "Request rejected"))
         response.raise_for_status()
         for line in response.iter_lines():
             if line.startswith("data: "):
@@ -75,13 +80,15 @@ def stream_analysis(
 
 
 def fetch_report_pdf(analysis_id: str) -> bytes:
-    response = httpx.get(f"{API_BASE_URL}/analyses/{analysis_id}/report.pdf", timeout=120)
+    response = httpx.get(
+        f"{API_BASE_URL}/analyses/{analysis_id}/report.pdf", headers=HEADERS, timeout=120
+    )
     response.raise_for_status()
     return response.content
 
 
 def fetch_history(symbol: str) -> list[dict[str, Any]]:
-    response = httpx.get(f"{API_BASE_URL}/history/{symbol}", timeout=30)
+    response = httpx.get(f"{API_BASE_URL}/history/{symbol}", headers=HEADERS, timeout=30)
     response.raise_for_status()
     return response.json()
 
@@ -211,6 +218,9 @@ def render_history(symbol: str) -> None:
 # --- Page -------------------------------------------------------------------------------
 
 st.set_page_config(page_title="Investing Engine", page_icon="📈", layout="wide")
+USER = require_user()
+HEADERS = api_headers(USER)
+sign_out_control()
 st.title("📈 Investing Engine")
 st.caption(
     "Multi-agent research on Borsa Istanbul instruments: technical indicators, headline "
@@ -218,7 +228,7 @@ st.caption(
 )
 
 try:
-    instruments = {i["symbol"]: i for i in fetch_instruments()}
+    instruments = {i["symbol"]: i for i in fetch_instruments(HEADERS)}
 except httpx.HTTPError as exc:
     st.error(f"Cannot reach the API at {API_BASE_URL}: {exc}")
     st.stop()

@@ -15,6 +15,7 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LLMProvider = Literal["ollama", "groq"]
+AuthMode = Literal["none", "trusted-proxy"]
 
 
 class Settings(BaseSettings):
@@ -27,6 +28,15 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     json_logs: bool = True
+
+    # --- Access control ----------------------------------------------------------
+    # "none" for local use; "trusted-proxy" when deployed behind the UI, which
+    # authenticates users and calls the API with INTERNAL_API_TOKEN.
+    auth_mode: AuthMode = "none"
+    internal_api_token: SecretStr | None = None
+    # Comma-separated identities, e.g. "you@example.com,github:octocat".
+    allowed_users: str = ""
+    requests_per_minute: int = Field(default=60, ge=1)
 
     # --- LLM -----------------------------------------------------------------
     llm_provider: LLMProvider = "ollama"

@@ -1,3 +1,4 @@
 streamlit==1.61.1
 plotly==6.9.0
 httpx==0.28.1
+Authlib==1.8.0
