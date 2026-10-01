@@ -17,7 +17,19 @@ from cachetools import TTLCache
 
 from investing_engine.analysis.technical import ModelCache, TechnicalSnapshot, analyze
 from investing_engine.config import Settings
+from investing_engine.guardrails.classifier import (
+    GroqPromptGuard,
+    InjectionClassifier,
+    classify_chunks,
+)
+from investing_engine.guardrails.injection import new_boundary, quarantine, spotlight
 from investing_engine.history import HistoryStore
+from investing_engine.ingestion.documents import (
+    DocumentError,
+    ExtractedDocument,
+    ExtractionLimits,
+    extract_document,
+)
 from investing_engine.providers.base import PriceProvider, ProviderError, SourceInfo
 from investing_engine.providers.csv_upload import USER_UPLOAD_SOURCE, parse_ohlcv_csv
 from investing_engine.providers.evds import (
@@ -34,6 +46,7 @@ from investing_engine.uploads import UploadNotFoundError, UploadStore
 T = TypeVar("T")
 
 PRICE_UPLOAD_KIND = "prices"
+DOCUMENT_UPLOAD_KIND = "document"
 _NEWS_TTL_SECONDS = 15 * 60
 _MACRO_TTL_SECONDS = 60 * 60
 
@@ -59,6 +72,23 @@ class _Memo:
         return value
 
 
+USER_DOCUMENT_ATTRIBUTION = {
+    "name": "User-supplied document",
+    "url": "",
+    "attribution": "Disclosure document supplied by the user.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class StoredDocument:
+    """An extracted document plus the guarded text the model is allowed to see."""
+
+    document: ExtractedDocument
+    guarded_text: str
+    injection_flags: tuple[str, ...]
+    truncated: bool
+
+
 def _source_dict(source: SourceInfo) -> dict[str, Any]:
     return {k: v for k, v in asdict(source).items() if k in ("name", "url", "attribution")}
 
@@ -74,6 +104,7 @@ class MarketData:
         uploads: UploadStore,
         history: HistoryStore,
         model_cache: ModelCache,
+        classifier: InjectionClassifier | None = None,
     ) -> None:
         self.settings = settings
         self.evds = evds
@@ -82,6 +113,7 @@ class MarketData:
         self.uploads = uploads
         self.history = history
         self.model_cache = model_cache
+        self.classifier = classifier
         self._news_memo = _Memo(_NEWS_TTL_SECONDS)
         self._macro_memo = _Memo(_MACRO_TTL_SECONDS)
 
@@ -92,6 +124,13 @@ class MarketData:
             evds = EvdsClient(
                 settings.evds_api_key.get_secret_value(),
                 base_url=settings.evds_base_url,
+                timeout=settings.http_timeout_seconds,
+            )
+        classifier = None
+        if settings.enable_prompt_guard and settings.groq_api_key is not None:
+            classifier = GroqPromptGuard(
+                api_key=settings.groq_api_key.get_secret_value(),
+                model=settings.prompt_guard_model,
                 timeout=settings.http_timeout_seconds,
             )
         history = HistoryStore(settings.db_path)
@@ -106,6 +145,7 @@ class MarketData:
             uploads=UploadStore(),
             history=history,
             model_cache=ModelCache(settings.model_dir, max_age_hours=settings.model_max_age_hours),
+            classifier=classifier,
         )
 
     # --- Sources -------------------------------------------------------------
@@ -200,15 +240,109 @@ class MarketData:
         limit = max(1, min(limit, 20))
 
         def fetch() -> dict[str, Any]:
+            headlines = self.gdelt.headlines(instrument, days=days, limit=limit)
+            lines: list[str] = []
+            flagged: set[str] = set()
+            for item in headlines:
+                title, result = quarantine(item["title"])
+                flagged.update(result.categories)
+                date = (item.get("published_at") or "")[:10]
+                lines.append(f"- {date} | {item.get('outlet') or 'unknown'} | {title}")
             return {
                 "symbol": instrument.symbol,
                 "window_days": days,
                 "average_tone": self.gdelt.average_tone(instrument, days=days),
-                "headlines": self.gdelt.headlines(instrument, days=days, limit=limit),
+                "headline_count": len(headlines),
+                "headlines": spotlight(
+                    self._classify("\n".join(lines) or "(no headlines)", flagged),
+                    source="GDELT",
+                    boundary=new_boundary(),
+                ),
+                "injection_flags": sorted(flagged),
                 "source": _source_dict(GDELT_SOURCE),
             }
 
         return self._news_memo.get_or_set(f"{instrument.symbol}:{days}:{limit}", fetch)
+
+    # --- Disclosure documents ----------------------------------------------------
+
+    def register_document(
+        self, *, owner: str, symbol: str, raw: bytes, filename: str
+    ) -> dict[str, Any]:
+        """Extract text (with OCR where needed) and store it for this owner."""
+        instrument = resolve(symbol)
+        limits = ExtractionLimits(
+            max_bytes=self.settings.max_document_bytes,
+            max_pages=self.settings.max_document_pages,
+            ocr_timeout_seconds=self.settings.ocr_timeout_seconds,
+        )
+        try:
+            document = extract_document(raw, filename=filename, limits=limits)
+        except DocumentError as exc:
+            raise ProviderError(str(exc)) from exc
+        if not document.text:
+            raise ProviderError("No text could be extracted from the document")
+
+        # Guard once at upload time so the optional classifier never runs twice
+        # for the same document.
+        limit = self.settings.max_document_chars_for_model
+        cleaned, scan = quarantine(document.text[:limit])
+        flags = set(scan.categories)
+        cleaned = self._classify(cleaned, flags)
+        stored = StoredDocument(
+            document=document,
+            guarded_text=cleaned,
+            injection_flags=tuple(sorted(flags)),
+            truncated=len(document.text) > limit,
+        )
+        upload = self.uploads.put(
+            owner=owner, kind=DOCUMENT_UPLOAD_KIND, label=instrument.symbol, payload=stored
+        )
+        return {
+            "document_id": upload.id,
+            "symbol": instrument.symbol,
+            **document.summary(),
+            "injection_flags": list(stored.injection_flags),
+        }
+
+    def _classify(self, text: str, flags: set[str]) -> str:
+        """Run the optional model classifier, recording a flag if it quarantines anything."""
+        if self.classifier is None:
+            return text
+        cleaned, flagged_chunks = classify_chunks(
+            self.classifier, text, threshold=self.settings.prompt_guard_threshold
+        )
+        if flagged_chunks:
+            flags.add("classifier")
+        return cleaned
+
+    def disclosure(
+        self, symbol: str, *, owner: str, document_id: str | None = None
+    ) -> dict[str, Any]:
+        """Guarded document text for the disclosure analyst."""
+        instrument = resolve(symbol)
+        if not document_id:
+            raise ProviderError(f"No disclosure document was provided for {instrument.symbol}.")
+        try:
+            upload = self.uploads.get(document_id, owner=owner, kind=DOCUMENT_UPLOAD_KIND)
+        except UploadNotFoundError:
+            raise ProviderError("Document not found or expired") from None
+        if upload.label != instrument.symbol:
+            raise ProviderError(f"Document belongs to {upload.label}, not {instrument.symbol}")
+
+        stored: StoredDocument = upload.payload
+        return {
+            "symbol": instrument.symbol,
+            "document": stored.document.summary(),
+            "truncated": stored.truncated,
+            "content": spotlight(
+                stored.guarded_text,
+                source=f"uploaded document {instrument.symbol}",
+                boundary=new_boundary(),
+            ),
+            "injection_flags": list(stored.injection_flags),
+            "source": USER_DOCUMENT_ATTRIBUTION,
+        }
 
     # --- History -------------------------------------------------------------------
 

@@ -14,6 +14,7 @@ dependencies = [
     "cachetools==7.1.7",
     "fastapi==0.142.2",
     "httpx==0.28.1",
+    "jinja2==3.1.6",
     "joblib==1.5.3",
     "langchain==1.4.3",
     "langchain-core==1.6.6",
@@ -23,21 +24,29 @@ dependencies = [
     "langgraph==1.2.12",
     "langgraph-supervisor==0.0.31",
     "mcp==1.30.0",
+    "matplotlib==3.10.9",
     "numpy==2.2.6",
     "pandas==2.3.3",
+    "pillow==12.3.0",
     "pydantic==2.13.4",
     "pydantic-settings==2.15.0",
+    "pypdf==6.19.0",
+    "pypdfium2==5.13.0",
+    "pytesseract==0.3.13",
     "python-dotenv==1.0.1",
     "python-multipart==0.0.32",
     "scikit-learn==1.7.2",
     "ta==0.11.0",
     "uvicorn==0.34.0",
+    "weasyprint==70.0",
 ]
 
 [project.optional-dependencies]
 # Yahoo Finance access is for local, personal use only and is never enabled
 # in a deployed build - see DATA_SOURCES.md.
 local = ["yfinance==1.6.0"]
+# Langfuse tracing; enabled at runtime only when LANGFUSE_* keys are set.
+observability = ["langfuse==4.16.0"]
 dev = [
     "mypy==2.3.1",
     "pandas-stubs",
@@ -86,6 +95,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S104", "S105", "S106", "S311"]
+# Regex pattern table is kept one pattern per line for reviewability.
+"src/investing_engine/guardrails/injection.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.10"

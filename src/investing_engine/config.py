@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     max_symbols_per_request: int = Field(default=3, ge=1, le=10)
     max_upload_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
     max_csv_rows: int = Field(default=5000, gt=0)
+    max_document_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    max_document_pages: int = Field(default=30, ge=1, le=200)
+    ocr_timeout_seconds: float = Field(default=30.0, gt=0)
+    max_document_chars_for_model: int = Field(default=12_000, ge=1000)
+
+    # --- Guardrails --------------------------------------------------------------------
+    # Model-based injection classifier on Groq, layered on the heuristic scanner.
+    enable_prompt_guard: bool = False
+    prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
+    prompt_guard_threshold: float = Field(default=0.5, gt=0, lt=1)
 
 
 @lru_cache(maxsize=1)

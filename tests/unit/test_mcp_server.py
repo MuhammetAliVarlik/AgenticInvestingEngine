@@ -42,8 +42,10 @@ async def test_tools_are_discoverable_and_annotated(server):
         "macro_snapshot",
         "news_headlines",
         "prediction_history",
+        "upload_document",
+        "disclosure_document",
     }
-    read_only = set(tools) - {"upload_price_csv"}
+    read_only = set(tools) - {"upload_price_csv", "upload_document"}
     assert all(tools[name].annotations.readOnlyHint for name in read_only)
     assert tools["technical_snapshot"].inputSchema["required"] == ["symbol"]
 

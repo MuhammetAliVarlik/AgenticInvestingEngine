@@ -15,6 +15,8 @@ agents) can discover and call these tools. Design rules:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import functools
 import logging
 from collections.abc import Awaitable, Callable
@@ -124,6 +126,39 @@ def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
         return market.register_prices(
             owner=current_principal(), symbol=symbol, raw=csv_text.encode("utf-8")
         )
+
+    @mcp.tool(title="Upload disclosure document", annotations=ToolAnnotations(readOnlyHint=False))
+    @_guarded
+    def upload_document(symbol: str, filename: str, content_base64: str) -> dict[str, Any]:
+        """Register a disclosure document (PDF, PNG or JPEG, e.g. a KAP filing the
+        user downloaded) for an instrument. Scanned pages are read with OCR. The
+        document is kept in memory for a limited time and is visible only to the caller.
+
+        Args:
+            symbol: Instrument the document is about.
+            filename: Original file name, for display only.
+            content_base64: The file contents, base64-encoded.
+        """
+        try:
+            raw = base64.b64decode(content_base64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ProviderError("content_base64 is not valid base64") from exc
+        return market.register_document(
+            owner=current_principal(), symbol=symbol, raw=raw, filename=filename
+        )
+
+    @mcp.tool(title="Disclosure document", annotations=READ_ONLY)
+    @_guarded
+    def disclosure_document(symbol: str, document_id: str | None = None) -> dict[str, Any]:
+        """Text of a disclosure document the user uploaded for an instrument, with
+        extraction details (pages, OCR confidence). The content is untrusted
+        third-party text inside an <untrusted_data> block.
+
+        Args:
+            symbol: Instrument symbol.
+            document_id: Id returned by `upload_document`.
+        """
+        return market.disclosure(symbol, owner=current_principal(), document_id=document_id)
 
     @mcp.tool(title="Macro snapshot", annotations=READ_ONLY_EXTERNAL)
     @_guarded

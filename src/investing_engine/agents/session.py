@@ -30,9 +30,9 @@ from mcp.shared.memory import create_connected_server_and_client_session
 
 from investing_engine.universe import normalize_symbol
 
-AGENT_HIDDEN_ARGUMENTS = frozenset({"dataset_id"})
+AGENT_HIDDEN_ARGUMENTS = frozenset({"dataset_id", "document_id"})
 # Tools the agents are never given: uploads happen through the API, not the LLM.
-AGENT_EXCLUDED_TOOLS = frozenset({"upload_price_csv"})
+AGENT_EXCLUDED_TOOLS = frozenset({"upload_price_csv", "upload_document"})
 
 # Marker credential for the in-memory transport; it is never checked or sent anywhere.
 _IN_PROCESS_TOKEN = "in-process"  # noqa: S105
@@ -40,22 +40,33 @@ _IN_PROCESS_TOKEN = "in-process"  # noqa: S105
 ToolHandler = Callable[[MCPToolCallRequest], Awaitable[MCPToolCallResult]]
 
 
-class DatasetInjector:
-    """Interceptor that attaches the caller's uploaded dataset to price lookups."""
+class UploadInjector:
+    """Interceptor that attaches the caller's uploads to the tools that read them.
 
-    def __init__(self, datasets: Mapping[str, str]) -> None:
-        self._datasets = {normalize_symbol(k): v for k, v in datasets.items()}
+    Any id the model tries to pass is discarded; only ids granted for this
+    request (and owned by this caller, as the server re-checks) are used.
+    """
+
+    def __init__(self, datasets: Mapping[str, str], documents: Mapping[str, str]) -> None:
+        self._grants = {
+            "technical_snapshot": ("dataset_id", _by_symbol(datasets)),
+            "disclosure_document": ("document_id", _by_symbol(documents)),
+        }
 
     async def __call__(
         self, request: MCPToolCallRequest, handler: ToolHandler
     ) -> MCPToolCallResult:
-        if request.name == "technical_snapshot":
-            args = {k: v for k, v in request.args.items() if k not in AGENT_HIDDEN_ARGUMENTS}
-            dataset_id = self._datasets.get(normalize_symbol(str(args.get("symbol", ""))))
-            if dataset_id:
-                args["dataset_id"] = dataset_id
-            request = request.override(args=args)
-        return await handler(request)
+        args = {k: v for k, v in request.args.items() if k not in AGENT_HIDDEN_ARGUMENTS}
+        if request.name in self._grants:
+            argument, grants = self._grants[request.name]
+            granted = grants.get(normalize_symbol(str(args.get("symbol", ""))))
+            if granted:
+                args[argument] = granted
+        return await handler(request.override(args=args))
+
+
+def _by_symbol(mapping: Mapping[str, str]) -> dict[str, str]:
+    return {normalize_symbol(k): v for k, v in mapping.items()}
 
 
 def _hide_arguments(tool: BaseTool) -> BaseTool:
@@ -80,6 +91,7 @@ async def engine_tools(
     *,
     principal: str,
     datasets: Mapping[str, str] | None = None,
+    documents: Mapping[str, str] | None = None,
 ) -> AsyncIterator[dict[str, BaseTool]]:
     """Open an MCP session as ``principal`` and yield agent-ready tools by name."""
     identity = AuthenticatedUser(
@@ -95,7 +107,7 @@ async def engine_tools(
         async with create_connected_server_and_client_session(server) as session:
             tools = await load_mcp_tools(
                 session,
-                tool_interceptors=[DatasetInjector(datasets or {})],
+                tool_interceptors=[UploadInjector(datasets or {}, documents or {})],
                 server_name="investing-engine",
             )
             yield {

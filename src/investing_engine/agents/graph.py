@@ -19,17 +19,20 @@ from typing import Any, cast
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.pregel import Pregel
 from langgraph_supervisor import create_supervisor
 
 from investing_engine.agents.prompts import (
+    DISCLOSURE_ANALYST_PROMPT,
     MACRO_ANALYST_PROMPT,
     NEWS_ANALYST_PROMPT,
     SUPERVISOR_PROMPT,
     TECHNICAL_ANALYST_PROMPT,
 )
+from investing_engine.guardrails.report import check_report, collect_facts
 from investing_engine.universe import Instrument
 
 logger = logging.getLogger(__name__)
@@ -39,6 +42,7 @@ SPECIALIST_TOOLS: dict[str, tuple[str, ...]] = {
     "technical_analyst": ("technical_snapshot",),
     "news_analyst": ("news_headlines",),
     "macro_analyst": ("macro_snapshot",),
+    "disclosure_analyst": ("disclosure_document",),
 }
 SUPERVISOR_TOOLS: tuple[str, ...] = ("prediction_history",)
 SPECIALISTS = tuple(SPECIALIST_TOOLS)
@@ -47,6 +51,7 @@ _SPECIALIST_PROMPTS = {
     "technical_analyst": TECHNICAL_ANALYST_PROMPT,
     "news_analyst": NEWS_ANALYST_PROMPT,
     "macro_analyst": MACRO_ANALYST_PROMPT,
+    "disclosure_analyst": DISCLOSURE_ANALYST_PROMPT,
 }
 _RISK_BLOCK = re.compile(
     r"News Risk:\s*(?P<symbol>[A-Z0-9.]+)\s*=*\s*Risk Score:\s*(?P<score>\d+(?:\.\d+)?)\s*/\s*10",
@@ -83,9 +88,14 @@ def build_graph(model: BaseChatModel, tools: Mapping[str, BaseTool]) -> Compiled
     return workflow.compile()
 
 
-def build_request(instruments: Sequence[Instrument]) -> str:
+def build_request(instruments: Sequence[Instrument], *, documents_for: Sequence[str] = ()) -> str:
     listed = ", ".join(f"{i.symbol} ({i.name})" for i in instruments)
-    return f"Prepare the research report for: {listed}."
+    request = f"Prepare the research report for: {listed}."
+    if documents_for:
+        request += f" Disclosure documents were provided for: {', '.join(documents_for)}."
+    else:
+        request += " No disclosure documents were provided."
+    return request
 
 
 # --- Result extraction ---------------------------------------------------------------
@@ -136,29 +146,69 @@ class AnalysisResult:
     risk: dict[str, float] = field(default_factory=dict)
     specialist_text: dict[str, str] = field(default_factory=dict)
     timings: dict[str, float] = field(default_factory=dict)
+    usage: dict[str, dict[str, int]] = field(default_factory=dict)
+    checks: dict[str, Any] = field(default_factory=dict)
+    injection_flags: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_messages(cls, messages: Sequence[BaseMessage]) -> AnalysisResult:
+    def from_messages(
+        cls, messages: Sequence[BaseMessage], *, requested: Sequence[str] = ()
+    ) -> AnalysisResult:
         technical = {
             str(r["symbol"]): r
             for r in tool_results(messages, "technical_snapshot")
             if "symbol" in r
         }
         texts = {name: final_text(messages, name) for name in SPECIALISTS}
+        tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+
+        flags: set[str] = set()
+        for name in ("news_headlines", "disclosure_document"):
+            for payload in tool_results(messages, name):
+                flags.update(payload.get("injection_flags") or [])
+
+        report, check = check_report(
+            final_text(messages, SUPERVISOR),
+            requested=requested,
+            facts=collect_facts(
+                [m.artifact for m in tool_messages] + [m.text for m in tool_messages]
+            ),
+        )
         return cls(
-            report=final_text(messages, SUPERVISOR),
+            report=report,
             technical=technical,
             risk=risk_scores(texts["news_analyst"]),
             specialist_text=texts,
+            usage=token_usage(messages),
+            checks=check.as_dict() if report else {},
+            injection_flags=sorted(flags),
         )
+
+
+def token_usage(messages: Sequence[BaseMessage]) -> dict[str, dict[str, int]]:
+    """Input/output tokens per agent, from the provider's usage metadata."""
+    usage: dict[str, dict[str, int]] = {}
+    for message in messages:
+        if not isinstance(message, AIMessage) or not message.usage_metadata:
+            continue
+        agent = message.name if message.name in SPECIALISTS else SUPERVISOR
+        totals = usage.setdefault(agent, {"input_tokens": 0, "output_tokens": 0, "calls": 0})
+        totals["input_tokens"] += message.usage_metadata.get("input_tokens", 0)
+        totals["output_tokens"] += message.usage_metadata.get("output_tokens", 0)
+        totals["calls"] += 1
+    return usage
 
 
 # --- Streaming -------------------------------------------------------------------------
 
 
 async def stream_analysis(
-    graph: CompiledStateGraph[Any], instruments: Sequence[Instrument]
+    graph: CompiledStateGraph[Any],
+    instruments: Sequence[Instrument],
+    *,
+    documents_for: Sequence[str] = (),
+    config: RunnableConfig | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Run the graph and yield UI events as they happen.
 
@@ -170,12 +220,12 @@ async def stream_analysis(
     writing_started: float | None = None
     messages: Sequence[BaseMessage] = []
     errors: list[str] = []
-    state = {"messages": [HumanMessage(build_request(instruments))]}
+    state = {"messages": [HumanMessage(build_request(instruments, documents_for=documents_for))]}
 
     try:
         stream = cast(
             "AsyncIterator[tuple[tuple[str, ...], str, Any]]",
-            graph.astream(state, stream_mode=["messages", "updates"], subgraphs=True),
+            graph.astream(state, config, stream_mode=["messages", "updates"], subgraphs=True),
         )
         async for namespace, mode, item in stream:
             if mode == "updates":
@@ -210,7 +260,7 @@ async def stream_analysis(
         errors.append(type(exc).__name__)
         yield {"type": "error", "message": "The analysis could not be completed."}
 
-    result = AnalysisResult.from_messages(messages)
+    result = AnalysisResult.from_messages(messages, requested=[i.symbol for i in instruments])
     result.errors = errors
     finished = time.perf_counter()
     result.timings = {
@@ -221,11 +271,14 @@ async def stream_analysis(
 
 
 async def run_analysis(
-    graph: CompiledStateGraph[Any], instruments: Sequence[Instrument]
+    graph: CompiledStateGraph[Any],
+    instruments: Sequence[Instrument],
+    *,
+    documents_for: Sequence[str] = (),
 ) -> AnalysisResult:
     """Non-streaming convenience wrapper over :func:`stream_analysis`."""
     result = AnalysisResult()
-    async for event in stream_analysis(graph, instruments):
+    async for event in stream_analysis(graph, instruments, documents_for=documents_for):
         if event["type"] == "final":
             result = event["result"]
     return result

@@ -28,6 +28,7 @@ AGENTS = {
     "technical_analyst": "📊 Technical",
     "news_analyst": "📰 News risk",
     "macro_analyst": "🏦 Macro",
+    "disclosure_analyst": "🧾 Disclosures",
     "supervisor": "🧠 Report",
 }
 
@@ -42,12 +43,12 @@ def fetch_instruments() -> list[dict[str, Any]]:
     return response.json()
 
 
-def upload_dataset(symbol: str, file_name: str, content: bytes) -> dict[str, Any]:
+def upload(endpoint: str, symbol: str, file_name: str, content: bytes) -> dict[str, Any]:
     response = httpx.post(
-        f"{API_BASE_URL}/datasets",
+        f"{API_BASE_URL}/{endpoint}",
         data={"symbol": symbol},
-        files={"file": (file_name, content, "text/csv")},
-        timeout=60,
+        files={"file": (file_name, content)},
+        timeout=180,
     )
     if response.status_code == 422:
         raise ValueError(response.json().get("detail", "Invalid file"))
@@ -55,11 +56,13 @@ def upload_dataset(symbol: str, file_name: str, content: bytes) -> dict[str, Any
     return response.json()
 
 
-def stream_analysis(symbols: list[str], datasets: dict[str, str]) -> Iterator[dict[str, Any]]:
+def stream_analysis(
+    symbols: list[str], datasets: dict[str, str], documents: dict[str, str]
+) -> Iterator[dict[str, Any]]:
     with httpx.stream(
         "POST",
         f"{API_BASE_URL}/analyses/stream",
-        json={"symbols": symbols, "datasets": datasets},
+        json={"symbols": symbols, "datasets": datasets, "documents": documents},
         timeout=REQUEST_TIMEOUT_SECONDS,
     ) as response:
         if response.status_code == 422:
@@ -153,6 +156,31 @@ def render_indicators(technical: dict[str, Any]) -> None:
     st.dataframe(table, hide_index=True, use_container_width=True)
 
 
+def render_quality(final: dict[str, Any]) -> None:
+    """Guardrail results: numeric grounding, scope and injection screening."""
+    checks = final.get("checks") or {}
+    flags = final.get("injection_flags") or []
+    usage = final.get("usage") or {}
+    cols = st.columns(4)
+    score = checks.get("grounding_score")
+    cols[0].metric("Grounded figures", "-" if score is None else f"{score:.0%}")
+    cols[1].metric("Figures checked", checks.get("checked_figures", 0))
+    cols[2].metric("Injection flags", len(flags))
+    tokens = sum(u.get("input_tokens", 0) + u.get("output_tokens", 0) for u in usage.values())
+    cols[3].metric("LLM tokens", f"{tokens:,}" if tokens else "-")
+    if checks.get("ungrounded_figures"):
+        st.warning(
+            "Figures not found in any tool output: " + ", ".join(checks["ungrounded_figures"])
+        )
+    if checks.get("unexpected_symbols"):
+        st.warning("Unrequested instruments in report: " + ", ".join(checks["unexpected_symbols"]))
+    if flags:
+        st.info(
+            "Possible prompt injection was detected in third-party content and removed "
+            f"before analysis ({', '.join(flags)})."
+        )
+
+
 def render_history(symbol: str) -> None:
     try:
         rows = fetch_history(symbol)
@@ -208,12 +236,32 @@ if needs_prices:
     for symbol in needs_prices:
         uploads[symbol] = st.file_uploader(f"{symbol} price history (CSV)", type=["csv"])
 
+documents_in: dict[str, Any] = {}
+if selected:
+    with st.expander("Optional: add a disclosure document (e.g. a KAP filing PDF)"):
+        st.caption(
+            "Upload filings you downloaded yourself. Scanned documents are read with OCR. "
+            "Content is screened for prompt injection before any model sees it."
+        )
+        for symbol in selected:
+            documents_in[symbol] = st.file_uploader(
+                f"{symbol} disclosure (PDF, PNG or JPEG)", type=["pdf", "png", "jpg", "jpeg"]
+            )
+
 ready = bool(selected) and all(uploads.get(s) is not None for s in needs_prices)
 if st.button("Analyze", type="primary", disabled=not ready):
     datasets: dict[str, str] = {}
+    documents: dict[str, str] = {}
     try:
         for symbol, file in uploads.items():
-            datasets[symbol] = upload_dataset(symbol, file.name, file.getvalue())["dataset_id"]
+            datasets[symbol] = upload("datasets", symbol, file.name, file.getvalue())["dataset_id"]
+        for symbol, file in documents_in.items():
+            if file is not None:
+                with st.spinner(f"Reading {file.name}…"):
+                    meta = upload("documents", symbol, file.name, file.getvalue())
+                documents[symbol] = meta["document_id"]
+                ocr_note = f", {meta['ocr_pages']} via OCR" if meta["ocr_pages"] else ""
+                st.caption(f"{file.name}: {meta['pages']} page(s){ocr_note}.")
     except (ValueError, httpx.HTTPError) as exc:
         st.error(f"Upload rejected: {exc}")
         st.stop()
@@ -228,7 +276,7 @@ if st.button("Analyze", type="primary", disabled=not ready):
     last_redraw = 0.0
 
     try:
-        for event in stream_analysis(selected, datasets):
+        for event in stream_analysis(selected, datasets, documents):
             kind, agent = event["type"], event.get("agent", "")
             label = AGENTS.get(agent, agent)
             if kind == "status":
@@ -265,6 +313,7 @@ if st.button("Analyze", type="primary", disabled=not ready):
     st.success("Analysis complete.")
     report_tab, *symbol_tabs = st.tabs(["📄 Report", *selected])
     with report_tab:
+        render_quality(final)
         st.markdown(final["report"])
     for tab, symbol in zip(symbol_tabs, selected, strict=True):
         with tab:

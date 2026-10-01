@@ -23,6 +23,13 @@ ENV PATH="/opt/venv/bin:$PATH" \
     DB_PATH=/data/predictions.db \
     MODEL_DIR=/data/models
 
+# OCR (Tesseract with Turkish and English models) and PDF rendering libraries.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /nonexistent --shell /usr/sbin/nologin app \
     && mkdir -p /data \

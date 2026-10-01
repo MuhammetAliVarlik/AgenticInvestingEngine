@@ -48,6 +48,14 @@ class AnalysisRequest(BaseModel):
         default_factory=dict,
         description="Optional symbol -> dataset_id map from POST /datasets.",
     )
+    documents: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional symbol -> document_id map from POST /documents.",
+    )
+
+    @property
+    def personalised(self) -> bool:
+        return bool(self.datasets or self.documents)
 
 
 class AnalysisResponse(BaseModel):
@@ -56,6 +64,9 @@ class AnalysisResponse(BaseModel):
     risk: dict[str, float]
     sources: list[dict[str, str]]
     timings: dict[str, float]
+    usage: dict[str, dict[str, int]] = Field(default_factory=dict)
+    checks: dict[str, Any] = Field(default_factory=dict)
+    injection_flags: list[str] = Field(default_factory=list)
     cached: bool = False
 
 
@@ -80,6 +91,10 @@ def _instruments(body: AnalysisRequest, settings: Settings) -> list[Instrument]:
         return resolve_many(",".join(body.symbols), limit=settings.max_symbols_per_request)
     except UnknownSymbolError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _upper_keys(mapping: dict[str, str]) -> set[str]:
+    return {k.strip().upper().removesuffix(".IS") for k in mapping}
 
 
 def _section_for(report: str, symbol: str) -> str:
@@ -114,6 +129,9 @@ def _response(market: MarketData, result: AnalysisResult) -> AnalysisResponse:
         risk=result.risk,
         sources=[{"name": s.name, "attribution": s.attribution} for s in market.active_sources()],
         timings=result.timings,
+        usage=result.usage,
+        checks=result.checks,
+        injection_flags=result.injection_flags,
     )
 
 
@@ -150,13 +168,18 @@ def create_app(
         state = request.app.state
         instruments = _instruments(body, settings)
         cache_key = ",".join(sorted(i.symbol for i in instruments))
-        if not body.datasets and (cached := state.cache.get(cache_key)) is not None:
+        if not body.personalised and (cached := state.cache.get(cache_key)) is not None:
             yield {"type": "final", **cached.model_dump(), "cached": True}
             return
 
         model = state.model_factory()
-        async with engine_tools(state.mcp, principal=caller, datasets=body.datasets) as tools:
-            async for event in stream_analysis(build_graph(model, tools), instruments):
+        documents_for = [i.symbol for i in instruments if i.symbol in _upper_keys(body.documents)]
+        async with engine_tools(
+            state.mcp, principal=caller, datasets=body.datasets, documents=body.documents
+        ) as tools:
+            async for event in stream_analysis(
+                build_graph(model, tools), instruments, documents_for=documents_for
+            ):
                 if event["type"] != "final":
                     yield event
                     continue
@@ -164,7 +187,7 @@ def create_app(
                 response = _response(state.market, result)
                 if result.report and not result.errors:
                     await run_in_threadpool(_persist, state.market, instruments, result)
-                    if not body.datasets:
+                    if not body.personalised:
                         state.cache[cache_key] = response
                 yield {"type": "final", **response.model_dump()}
 
@@ -194,6 +217,26 @@ def create_app(
         try:
             return await run_in_threadpool(
                 market.register_prices, owner=caller, symbol=symbol, raw=raw
+            )
+        except (UnknownSymbolError, ProviderError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/documents", tags=["data"], status_code=201)
+    async def upload_document(
+        market: Market,
+        caller: Principal,
+        symbol: Annotated[str, Form(max_length=16)],
+        file: Annotated[UploadFile, File(description="Disclosure document: PDF, PNG or JPEG")],
+    ) -> dict[str, Any]:
+        """Register a disclosure document; scanned pages are read with OCR."""
+        raw = await file.read(settings.max_document_bytes + 1)
+        try:
+            return await run_in_threadpool(
+                market.register_document,
+                owner=caller,
+                symbol=symbol,
+                raw=raw,
+                filename=file.filename or "document",
             )
         except (UnknownSymbolError, ProviderError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
