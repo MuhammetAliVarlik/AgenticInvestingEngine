@@ -14,6 +14,7 @@ the UI.
 | [TCMB EVDS](https://evds3.tcmb.gov.tr) — Central Bank of the Republic of Türkiye | BIST 100 index closes, USD/TRY, EUR/TRY, CBRT funding rate, CPI | Data may be used and republished by third parties provided the source is cited. Requires a free API key. | *Source: Central Bank of the Republic of Türkiye (TCMB), EVDS.* |
 | [The GDELT Project](https://www.gdeltproject.org/) — DOC 2.0 API | Headline metadata (title, outlet, URL, time) and aggregate tone | Unlimited and unrestricted use, including commercial use and redistribution, with a citation of and link to the GDELT Project. | *News metadata: The GDELT Project (https://www.gdeltproject.org/).* |
 | User-supplied files | Daily OHLCV for individual equities | Supplied by the user from their own licensed source (e.g. a brokerage export). | *Price data supplied by the user.* |
+| User-supplied documents | Company disclosures (e.g. KAP filings the user downloaded) | Provided by the user; read in memory (text layer or OCR) for that user's analyses only. | *Disclosure document supplied by the user.* |
 
 ### How each source is used
 
@@ -25,9 +26,12 @@ the UI.
   article bodies are never fetched. Queries are built from a fixed instrument
   allowlist, never from user input, and requests are throttled to GDELT's
   guidance of one request every five seconds.
-- **User uploads** — validated (size, row count, encoding, required columns),
-  held in memory for at most two hours, visible only to the uploader, and never
+- **User uploads** — validated (size, row count, encoding, required columns;
+  for documents also magic bytes, page count and decoded image size), held in
+  memory for at most two hours, visible only to the uploader, and never
   written to disk. Models trained on uploaded data are not persisted.
+  Document text is screened for prompt injection before any model sees it,
+  and traces record it only in truncated form.
 
 ## Local-only source
 
@@ -39,7 +43,7 @@ the UI.
 
 | Source | Reason |
 |---|---|
-| Automated KAP (Public Disclosure Platform) retrieval | Production use of KAP's data distribution service requires a data distribution agreement with Borsa İstanbul. Disclosures will instead be analysed from documents the user uploads. |
+| Automated KAP (Public Disclosure Platform) retrieval | Production use of KAP's data distribution service requires a data distribution agreement with Borsa İstanbul. Disclosures are analysed from documents the user uploads instead. |
 | Scraping news or market-data websites | Publisher content is copyrighted and site terms generally prohibit automated collection. |
 | Real-time or delayed BIST equity prices | Licensed by Borsa İstanbul; redistribution requires a vendor agreement. |
 
@@ -48,7 +52,8 @@ the UI.
 The prediction-history database stores only the engine's own derived output
 per analysis: timestamp, signal, news-risk score, EMA values, price at
 analysis time, a divergence flag and the report section. No headlines,
-uploaded files or third-party text are persisted.
+uploaded files or third-party text are persisted. Per-user usage counters
+store only a salted hash of the user's identity.
 
 ---
 
