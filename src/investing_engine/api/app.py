@@ -18,7 +18,7 @@ from typing import Annotated, Any
 
 from cachetools import TTLCache
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
@@ -39,6 +39,7 @@ from investing_engine.observability.budget import (
 from investing_engine.observability.logging import request_id_var
 from investing_engine.observability.tracing import Tracer
 from investing_engine.providers.base import ProviderError
+from investing_engine.reporting.pdf import InstrumentSection, render_pdf
 from investing_engine.services import MarketData
 from investing_engine.universe import (
     Instrument,
@@ -47,6 +48,7 @@ from investing_engine.universe import (
     resolve,
     resolve_many,
 )
+from investing_engine.uploads import UploadNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,28 @@ class AnalysisResponse(BaseModel):
     checks: dict[str, Any] = Field(default_factory=dict)
     injection_flags: list[str] = Field(default_factory=list)
     cached: bool = False
+    analysis_id: str | None = Field(
+        default=None, description="Use with GET /analyses/{analysis_id}/report.pdf."
+    )
+
+
+ANALYSIS_KIND = "analysis"
+
+
+def _remember(
+    market: MarketData,
+    caller: str,
+    body: AnalysisRequest,
+    instruments: Sequence[Instrument],
+    response: AnalysisResponse,
+) -> str:
+    """Keep the result (owner-scoped, expiring) so its PDF can be downloaded."""
+    symbols = [i.symbol for i in instruments]
+    record = {"response": response, "symbols": symbols, "body": body}
+    upload = market.uploads.put(
+        owner=caller, kind=ANALYSIS_KIND, label=",".join(symbols), payload=record
+    )
+    return upload.id
 
 
 def principal() -> str:
@@ -235,7 +259,13 @@ def create_app(
         state = request.app.state
         instruments, cache_key, cached = _prepare(request, caller, body)
         if cached is not None:
-            yield {"type": "final", **cached.model_dump(), "cached": True}
+            analysis_id = _remember(state.market, caller, body, instruments, cached)
+            yield {
+                "type": "final",
+                **cached.model_dump(),
+                "cached": True,
+                "analysis_id": analysis_id,
+            }
             return
 
         trace = state.tracer.start(
@@ -270,6 +300,13 @@ def create_app(
                     await run_in_threadpool(_persist, state.market, instruments, result)
                     if not body.personalised:
                         state.cache[cache_key] = response
+                    response = response.model_copy(
+                        update={
+                            "analysis_id": _remember(
+                                state.market, caller, body, instruments, response
+                            )
+                        }
+                    )
                 yield {"type": "final", **response.model_dump()}
 
     @app.get("/healthz", tags=["meta"])
@@ -366,6 +403,64 @@ def create_app(
             events(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
+
+    @app.get(
+        "/analyses/{analysis_id}/report.pdf",
+        tags=["analysis"],
+        response_class=Response,
+        responses={200: {"content": {"application/pdf": {}}}},
+    )
+    async def report_pdf(analysis_id: str, market: Market, caller: Principal) -> Response:
+        """Download a completed analysis as a PDF report with charts."""
+        try:
+            record = market.uploads.get(analysis_id, owner=caller, kind=ANALYSIS_KIND).payload
+        except UploadNotFoundError:
+            raise HTTPException(status_code=404, detail="Analysis not found or expired") from None
+        response: AnalysisResponse = record["response"]
+        body: AnalysisRequest = record["body"]
+        datasets = {k.strip().upper().removesuffix(".IS"): v for k, v in body.datasets.items()}
+
+        def build() -> bytes:
+            sections = []
+            for symbol in record["symbols"]:
+                instrument = resolve(symbol)
+                try:
+                    series = market.chart_series(
+                        symbol, owner=caller, dataset_id=datasets.get(symbol)
+                    )
+                except ProviderError:
+                    series = None  # e.g. the uploaded dataset has expired
+                sections.append(
+                    InstrumentSection(
+                        symbol=symbol,
+                        name=instrument.name,
+                        technical=response.technical.get(symbol),
+                        risk=response.risk.get(symbol),
+                        series=series,
+                        history=market.history.timeline(symbol, limit=60),
+                    )
+                )
+            return render_pdf(
+                report=response.report,
+                sections=sections,
+                checks=response.checks,
+                injection_flags=response.injection_flags,
+                usage=response.usage,
+                sources=response.sources,
+                reference=analysis_id[:8],
+            )
+
+        pdf = await run_in_threadpool(build)
+        filename = f"investing-engine-{'-'.join(record['symbols']).lower()}.pdf"
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     @app.get("/usage", tags=["meta"])

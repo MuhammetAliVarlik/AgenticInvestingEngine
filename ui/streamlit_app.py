@@ -74,6 +74,12 @@ def stream_analysis(
                 yield json.loads(line[6:])
 
 
+def fetch_report_pdf(analysis_id: str) -> bytes:
+    response = httpx.get(f"{API_BASE_URL}/analyses/{analysis_id}/report.pdf", timeout=120)
+    response.raise_for_status()
+    return response.content
+
+
 def fetch_history(symbol: str) -> list[dict[str, Any]]:
     response = httpx.get(f"{API_BASE_URL}/history/{symbol}", timeout=30)
     response.raise_for_status()
@@ -311,6 +317,18 @@ if st.button("Analyze", type="primary", disabled=not ready):
         st.stop()
 
     st.success("Analysis complete.")
+    if analysis_id := final.get("analysis_id"):
+        try:
+            with st.spinner("Preparing the PDF report…"):
+                pdf = fetch_report_pdf(analysis_id)
+            st.download_button(
+                "⬇️ Download PDF report",
+                data=pdf,
+                file_name=f"investing-engine-{'-'.join(selected).lower()}.pdf",
+                mime="application/pdf",
+            )
+        except httpx.HTTPError as exc:
+            st.caption(f"PDF report unavailable: {exc}")
     report_tab, *symbol_tabs = st.tabs(["📄 Report", *selected])
     with report_tab:
         render_quality(final)

@@ -15,6 +15,7 @@ from typing import Any, TypeVar
 import pandas as pd
 from cachetools import TTLCache
 
+from investing_engine.analysis.indicators import compute_features
 from investing_engine.analysis.technical import ModelCache, TechnicalSnapshot, analyze
 from investing_engine.config import Settings
 from investing_engine.guardrails.classifier import (
@@ -222,6 +223,16 @@ class MarketData:
             source=source.name,
             cache=self.model_cache if cacheable else None,
         )
+
+    def chart_series(
+        self, symbol: str, *, owner: str, dataset_id: str | None = None, bars: int = 120
+    ) -> pd.DataFrame:
+        """Recent price and indicator series for charts (never sent to the model)."""
+        instrument = resolve(symbol)
+        prices, _, _ = self._prices(instrument, owner=owner, dataset_id=dataset_id)
+        features, _ = compute_features(prices)
+        columns = ["Close", "ema34", "ema89", "bb_high", "bb_low", "rsi"]
+        return features[columns].tail(bars)
 
     # --- Macro ---------------------------------------------------------------------
 
