@@ -1,112 +1,101 @@
 #!/usr/bin/env python3
-"""Rough backtest of the rule-based RSI signal threshold logic.
+"""Directional backtest of the RSI mean-reversion signal thresholds.
 
-This evaluates ONLY the rule-based classify_signal() threshold logic in
-api/tools/stockPriceAnaliserTool.py (bullish when RSI < 30, bearish when
-RSI > 70) against realized historical RSI and subsequent price movement.
+Scores ``classify_signal`` (bullish below RSI 30, bearish above 70) on
+realised historical RSI: for every day a signal fires, it checks whether the
+close ``--horizon`` trading days later moved in the signalled direction.
+Realised RSI stands in for the live model's one-step-ahead forecast, so this
+measures whether the threshold framing is directionally meaningful, not the
+accuracy of the RandomForest forecast or of the generated report text.
 
-Important scope note: the live system predicts *next-period* RSI with a
-RandomForestRegressor and classifies that prediction; retraining that model
-at every historical point would be expensive and is out of scope for a
-lightweight backtest. This script instead uses REALIZED (actual) historical
-RSI as a proxy for what the model tries to approximate one step ahead, and
-checks whether price N trading days later moved in the direction the
-threshold-based signal would suggest. It answers "is this threshold
-framing directionally meaningful on history", not "how accurate is the
-live model's prediction" and NOT "how good is the LLM-generated investment
-strategy text" - the latter isn't something a rule-based backtest can
-evaluate.
+Price history is fetched from Yahoo Finance, which is for personal research
+use only - this script is a local research tool and is not part of any
+deployed build. Requires ``pip install -e .[local]``.
 
 Usage:
     python scripts/backtest.py
-    python scripts/backtest.py --tickers THYAO.IS,ASELS.IS --period 2y --horizon 5
+    python scripts/backtest.py --symbols THYAO,ASELS --days 730 --horizon 5
 """
+
+from __future__ import annotations
+
 import argparse
-import os
-import sys
+from dataclasses import dataclass
 
 import pandas as pd
 import ta
-import yfinance as yf
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
-from tools.stockPriceAnaliserTool import classify_signal  # noqa: E402
+from investing_engine.analysis.indicators import classify_signal
+from investing_engine.providers.base import ProviderError
+from investing_engine.providers.yahoo import YahooPriceProvider
 
-DEFAULT_TICKERS = ["THYAO.IS", "ASELS.IS", "TUPRS.IS", "VESTL.IS", "BAYRK.IS"]
+DEFAULT_SYMBOLS = ("THYAO", "ASELS", "TUPRS", "EREGL", "BIMAS")
 
 
-def backtest_ticker(ticker: str, period: str, horizon_days: int) -> dict:
-    df = yf.download(ticker, interval="1d", period=period, progress=False)[["Close"]]
-    if df.empty:
-        return {"ticker": ticker, "error": "no data"}
+@dataclass
+class TickerResult:
+    symbol: str
+    bullish: int
+    bullish_hits: int
+    bearish: int
+    bearish_hits: int
 
-    close = df["Close"].squeeze()
+
+def backtest(prices: pd.DataFrame, symbol: str, horizon: int) -> TickerResult:
+    close = prices["Close"]
     rsi = ta.momentum.RSIIndicator(close, window=14).rsi()
-    signal = rsi.apply(lambda v: classify_signal(v) if pd.notna(v) else None)
-    future_return = close.shift(-horizon_days) / close - 1
-
-    frame = pd.DataFrame({"signal": signal, "future_return": future_return}).dropna()
+    signal = rsi.map(lambda v: classify_signal(v) if pd.notna(v) else None)
+    forward = close.shift(-horizon) / close - 1
+    frame = pd.DataFrame({"signal": signal, "forward": forward}).dropna()
 
     bullish = frame[frame["signal"] == "bullish"]
     bearish = frame[frame["signal"] == "bearish"]
+    return TickerResult(
+        symbol=symbol,
+        bullish=len(bullish),
+        bullish_hits=int((bullish["forward"] > 0).sum()),
+        bearish=len(bearish),
+        bearish_hits=int((bearish["forward"] < 0).sum()),
+    )
 
-    return {
-        "ticker": ticker,
-        "bullish_signals": len(bullish),
-        "bullish_hit_rate": float((bullish["future_return"] > 0).mean()) if len(bullish) else None,
-        "bearish_signals": len(bearish),
-        "bearish_hit_rate": float((bearish["future_return"] < 0).mean()) if len(bearish) else None,
-    }
+
+def _rate(hits: int, total: int) -> str:
+    return f"{hits / total * 100:.1f}%" if total else "-"
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tickers", default=",".join(DEFAULT_TICKERS), help="comma-separated BIST100 tickers")
-    parser.add_argument("--period", default="2y", help="yfinance history period, e.g. 1y, 2y, 5y")
-    parser.add_argument("--horizon", type=int, default=5, help="trading days ahead to check directional correctness")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS))
+    parser.add_argument("--days", type=int, default=730, help="calendar days of history")
+    parser.add_argument("--horizon", type=int, default=5, help="trading days ahead")
     args = parser.parse_args()
 
-    tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+    provider = YahooPriceProvider()
+    results: list[TickerResult] = []
+    print(f"RSI-threshold backtest, horizon = {args.horizon} trading days\n")
+    print(f"{'Symbol':<8}{'Bullish n':>11}{'Hit rate':>10}{'Bearish n':>11}{'Hit rate':>10}")
 
-    print(f"Backtesting classify_signal() RSI thresholds, horizon={args.horizon} trading days\n")
-    print(f"{'Ticker':<10} {'Bullish n':>10} {'Bullish hit%':>13} {'Bearish n':>10} {'Bearish hit%':>13}")
-
-    all_bullish_hits, all_bullish_n = 0.0, 0
-    all_bearish_hits, all_bearish_n = 0.0, 0
-
-    for ticker in tickers:
-        result = backtest_ticker(ticker, args.period, args.horizon)
-        if "error" in result:
-            print(f"{ticker:<10} {result['error']}")
+    for symbol in (s.strip().upper() for s in args.symbols.split(",") if s.strip()):
+        try:
+            prices = provider.get_history(symbol, lookback_days=args.days)
+        except ProviderError as exc:
+            print(f"{symbol:<8}{exc}")
             continue
-
-        bh = result["bullish_hit_rate"]
-        be = result["bearish_hit_rate"]
+        r = backtest(prices, symbol, args.horizon)
+        results.append(r)
         print(
-            f"{ticker:<10} {result['bullish_signals']:>10} "
-            f"{'' if bh is None else f'{bh * 100:.1f}%':>13} "
-            f"{result['bearish_signals']:>10} "
-            f"{'' if be is None else f'{be * 100:.1f}%':>13}"
+            f"{r.symbol:<8}{r.bullish:>11}{_rate(r.bullish_hits, r.bullish):>10}"
+            f"{r.bearish:>11}{_rate(r.bearish_hits, r.bearish):>10}"
         )
 
-        if bh is not None:
-            all_bullish_hits += bh * result["bullish_signals"]
-            all_bullish_n += result["bullish_signals"]
-        if be is not None:
-            all_bearish_hits += be * result["bearish_signals"]
-            all_bearish_n += result["bearish_signals"]
-
-    print()
-    if all_bullish_n:
-        print(f"Overall bullish hit rate:  {all_bullish_hits / all_bullish_n * 100:.1f}% over {all_bullish_n} signals")
-    if all_bearish_n:
-        print(f"Overall bearish hit rate:  {all_bearish_hits / all_bearish_n * 100:.1f}% over {all_bearish_n} signals")
-    print(
-        "\nNote: this scores the rule-based RSI-threshold signal only, using realized "
-        "historical RSI as a stand-in for the live model's next-period prediction. It is "
-        "not an evaluation of the trained RandomForest model's live predictions or of the "
-        "LLM-generated investment strategy text."
-    )
+    bullish = sum(r.bullish for r in results)
+    bearish = sum(r.bearish for r in results)
+    print(f"\nOverall bullish hit rate: {_rate(sum(r.bullish_hits for r in results), bullish)}"
+          f" over {bullish} signals")  # fmt: skip
+    print(f"Overall bearish hit rate: {_rate(sum(r.bearish_hits for r in results), bearish)}"
+          f" over {bearish} signals")  # fmt: skip
 
 
 if __name__ == "__main__":

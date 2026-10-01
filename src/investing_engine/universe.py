@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{2,6}$")
 
@@ -67,6 +68,19 @@ _INSTRUMENTS: tuple[Instrument, ...] = (
 )
 
 UNIVERSE: dict[str, Instrument] = {i.symbol: i for i in _INSTRUMENTS}
+
+
+def describe_universe() -> list[dict[str, Any]]:
+    """Public, JSON-ready description of every supported instrument."""
+    return [
+        {
+            "symbol": i.symbol,
+            "name": i.name,
+            "kind": i.kind.value,
+            "public_prices": i.evds_series is not None,
+        }
+        for i in _INSTRUMENTS
+    ]
 
 
 def normalize_symbol(raw: str) -> str:

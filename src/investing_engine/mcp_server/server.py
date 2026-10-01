@@ -28,7 +28,7 @@ from mcp.types import ToolAnnotations
 
 from investing_engine.providers.base import ProviderError
 from investing_engine.services import MarketData
-from investing_engine.universe import UNIVERSE, UnknownSymbolError, resolve
+from investing_engine.universe import UnknownSymbolError, describe_universe, resolve
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +79,6 @@ def _guarded(fn: Callable[P, R]) -> Callable[P, Awaitable[R]]:
     return wrapper
 
 
-def _instrument_rows() -> list[dict[str, Any]]:
-    return [
-        {
-            "symbol": i.symbol,
-            "name": i.name,
-            "kind": i.kind.value,
-            "public_prices": i.evds_series is not None,
-        }
-        for i in UNIVERSE.values()
-    ]
-
-
 def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
     mcp = FastMCP(
         name="investing-engine",
@@ -104,7 +92,7 @@ def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
     def list_instruments() -> list[dict[str, Any]]:
         """List every instrument this server can analyse, with its kind and whether
         prices are available without an upload."""
-        return _instrument_rows()
+        return describe_universe()
 
     @mcp.tool(title="Technical snapshot", annotations=READ_ONLY_EXTERNAL)
     @_guarded
@@ -175,7 +163,7 @@ def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
     @mcp.resource("instruments://universe", mime_type="application/json")
     def universe_resource() -> list[dict[str, Any]]:
         """All supported instruments."""
-        return _instrument_rows()
+        return describe_universe()
 
     @mcp.resource("sources://attribution", mime_type="application/json")
     def attribution_resource() -> list[dict[str, Any]]:
