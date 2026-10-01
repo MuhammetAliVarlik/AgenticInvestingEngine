@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
+import time
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 from cachetools import TTLCache
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +29,15 @@ from investing_engine.agents.llm import build_chat_model
 from investing_engine.agents.session import engine_tools
 from investing_engine.config import Settings, get_settings
 from investing_engine.mcp_server.server import LOCAL_PRINCIPAL, build_server
+from investing_engine.observability.budget import (
+    RATE_LIMIT_ERRORS,
+    BudgetExceededError,
+    CircuitBreaker,
+    UsageStore,
+    total_tokens,
+)
+from investing_engine.observability.logging import request_id_var
+from investing_engine.observability.tracing import Tracer
 from investing_engine.providers.base import ProviderError
 from investing_engine.services import MarketData
 from investing_engine.universe import (
@@ -150,7 +161,16 @@ def create_app(
         app.state.mcp = build_server(app.state.market)
         app.state.model_factory = model_factory or (lambda: build_chat_model(settings))
         app.state.cache = TTLCache(maxsize=256, ttl=max(settings.cache_ttl_seconds, 1))
+        app.state.tracer = Tracer(settings)
+        app.state.usage = UsageStore(
+            settings.db_path,
+            salt=settings.telemetry_salt.get_secret_value(),
+            max_analyses=settings.daily_analyses_per_user,
+            max_tokens=settings.daily_tokens_per_user,
+        )
+        app.state.breaker = CircuitBreaker(settings.rate_limit_cooldown_seconds)
         yield
+        app.state.tracer.shutdown()
         if owned:
             app.state.market.close()
 
@@ -162,28 +182,89 @@ def create_app(
         redoc_url=None,
     )
 
-    async def _run_events(
+    @app.middleware("http")
+    async def correlate(request: Request, call_next: Any) -> Any:
+        """Attach a request id to logs, traces and the response; log timing."""
+        incoming = request.headers.get("x-request-id", "")
+        request_id = (
+            incoming if incoming.isalnum() and len(incoming) <= 64 else secrets.token_hex(8)
+        )
+        token = request_id_var.set(request_id)
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_var.reset(token)
+        response.headers["X-Request-ID"] = request_id
+        logger.info(
+            "request",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "ms": round((time.perf_counter() - started) * 1000),
+                "request_id": request_id,
+            },
+        )
+        return response
+
+    @app.exception_handler(BudgetExceededError)
+    async def budget_exceeded(_: Request, exc: BudgetExceededError) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": str(exc)},
+            headers={"Retry-After": str(exc.retry_after)},
+        )
+
+    def _prepare(
         request: Request, caller: str, body: AnalysisRequest
-    ) -> AsyncIterator[dict[str, Any]]:
+    ) -> tuple[list[Instrument], str, AnalysisResponse | None]:
+        """Validate, look up the cache and enforce budgets before any work starts."""
         state = request.app.state
         instruments = _instruments(body, settings)
         cache_key = ",".join(sorted(i.symbol for i in instruments))
         if not body.personalised and (cached := state.cache.get(cache_key)) is not None:
+            return instruments, cache_key, cached
+        state.breaker.check()
+        state.usage.check(caller)
+        return instruments, cache_key, None
+
+    async def _run_events(
+        request: Request, caller: str, body: AnalysisRequest
+    ) -> AsyncIterator[dict[str, Any]]:
+        state = request.app.state
+        instruments, cache_key, cached = _prepare(request, caller, body)
+        if cached is not None:
             yield {"type": "final", **cached.model_dump(), "cached": True}
             return
 
+        trace = state.tracer.start(
+            principal=caller,
+            request_id=request_id_var.get(),
+            symbols=[i.symbol for i in instruments],
+            recursion_limit=settings.max_graph_steps,
+        )
         model = state.model_factory()
         documents_for = [i.symbol for i in instruments if i.symbol in _upper_keys(body.documents)]
         async with engine_tools(
             state.mcp, principal=caller, datasets=body.datasets, documents=body.documents
         ) as tools:
             async for event in stream_analysis(
-                build_graph(model, tools), instruments, documents_for=documents_for
+                build_graph(model, tools),
+                instruments,
+                documents_for=documents_for,
+                config=trace.config,
             ):
                 if event["type"] != "final":
                     yield event
                     continue
                 result: AnalysisResult = event["result"]
+                await run_in_threadpool(state.tracer.finish, trace, result)
+                await run_in_threadpool(
+                    state.usage.record, caller, tokens=total_tokens(result.usage)
+                )
+                if RATE_LIMIT_ERRORS & set(result.errors):
+                    state.breaker.trip()
                 response = _response(state.market, result)
                 if result.report and not result.errors:
                     await run_in_threadpool(_persist, state.market, instruments, result)
@@ -273,7 +354,9 @@ def create_app(
     ) -> StreamingResponse:
         """Server-sent events: ``status``, ``tool_call``, ``tool_result``, ``token``,
         ``error`` and a terminal ``final`` event with the structured result."""
-        _instruments(body, settings)  # validate before the stream starts (422, not 200)
+        # Validate and enforce budgets before the stream starts, so errors are
+        # proper 422/429 responses rather than a 200 stream that fails.
+        _prepare(request, caller, body)
 
         async def events() -> AsyncIterator[str]:
             async for event in _run_events(request, caller, body):
@@ -284,6 +367,18 @@ def create_app(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
+
+    @app.get("/usage", tags=["meta"])
+    def usage(request: Request, caller: Principal) -> dict[str, int]:
+        """The caller's consumption against today's budget."""
+        store: UsageStore = request.app.state.usage
+        today = store.get(caller)
+        return {
+            "analyses": today.analyses,
+            "analyses_limit": store.max_analyses,
+            "tokens": today.tokens,
+            "tokens_limit": store.max_tokens,
+        }
 
     @app.get("/history/{symbol}", tags=["analysis"])
     def history(symbol: str, market: Market, limit: int = 100) -> list[dict[str, Any]]:

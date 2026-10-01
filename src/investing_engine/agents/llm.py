@@ -25,6 +25,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             model=settings.groq_model,
             api_key=settings.groq_api_key,
             temperature=settings.llm_temperature,
+            max_tokens=settings.max_output_tokens,
             max_retries=2,
         )
 
@@ -34,4 +35,5 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
         model=settings.ollama_model,
         base_url=settings.ollama_base_url,
         temperature=settings.llm_temperature,
+        num_predict=settings.max_output_tokens,
     )

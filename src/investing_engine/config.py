@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    environment: str = "development"
+    log_level: str = "INFO"
+    json_logs: bool = True
+
     # --- LLM -----------------------------------------------------------------
     llm_provider: LLMProvider = "ollama"
     ollama_base_url: str = "http://localhost:11434"
@@ -31,6 +35,10 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     groq_model: str = "llama-3.3-70b-versatile"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
+    max_output_tokens: int = Field(default=1024, ge=128, le=8192)
+    max_graph_steps: int = Field(
+        default=40, ge=10, le=200, description="LangGraph recursion limit per analysis."
+    )
 
     # --- Data providers --------------------------------------------------------
     evds_api_key: SecretStr | None = None
@@ -64,6 +72,19 @@ class Settings(BaseSettings):
     enable_prompt_guard: bool = False
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
     prompt_guard_threshold: float = Field(default=0.5, gt=0, lt=1)
+
+    # --- Observability -----------------------------------------------------------------
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+    # Salt for hashing user identities in traces and usage counters. Set a
+    # random value in every deployment.
+    telemetry_salt: SecretStr = SecretStr("local-development-salt")
+
+    # --- Budgets -----------------------------------------------------------------------
+    daily_analyses_per_user: int = Field(default=20, ge=1)
+    daily_tokens_per_user: int = Field(default=200_000, ge=1000)
+    rate_limit_cooldown_seconds: float = Field(default=60.0, ge=1)
 
 
 @lru_cache(maxsize=1)
