@@ -3,24 +3,23 @@
 [![CI](https://github.com/MuhammetAliVarlik/AgenticInvestingEngine/actions/workflows/tests.yml/badge.svg)](https://github.com/MuhammetAliVarlik/AgenticInvestingEngine/actions/workflows/tests.yml)
 [![Security](https://github.com/MuhammetAliVarlik/AgenticInvestingEngine/actions/workflows/security.yml/badge.svg)](https://github.com/MuhammetAliVarlik/AgenticInvestingEngine/actions/workflows/security.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
+![React](https://img.shields.io/badge/React-TypeScript-149eca)
 ![MCP](https://img.shields.io/badge/MCP-server%20%2B%20client-6f42c1)
 ![LangGraph](https://img.shields.io/badge/LangGraph-supervisor-1c3c3c)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**An MCP-native, multi-agent research engine for Borsa İstanbul.** A LangGraph
-supervisor coordinates four specialist agents (technical analysis, headline
-risk, the Turkish macro backdrop and company disclosures) and writes a single
-grounded report. Every capability is published as a
-[Model Context Protocol](https://modelcontextprotocol.io) server, so the same
-tools power the engine's own agents, Claude Desktop, Cursor or any other MCP
-client.
+**Investing Engine is a multi-agent research system for Borsa İstanbul.**
+A supervisor agent controls four specialist agents. Each specialist examines
+one area: price trends, news risk, the Turkish macro economy or company
+disclosures. The supervisor then writes one report. The system examines each
+number in the report against the source data.
 
-The system is built for production use from the start. Prompt-injection
-defences screen all third-party text. Every figure in a report is checked
-against tool output. Scanned filings are read with OCR, analyses are traced
-end to end, and reports download as PDFs. Access is controlled with
-authentication, per-user budgets and licensed data sources only. It runs on a
-local model (Ollama) or a hosted one (Groq) with a single setting.
+All tools of the engine are available through the
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP). The agents
+of the engine use these tools through MCP. Claude Desktop, Cursor and other
+MCP clients can use the same tools.
+
+> **Note:** This document uses ASD-STE100 Simplified Technical English.
 
 ---
 
@@ -28,14 +27,17 @@ local model (Ollama) or a hosted one (Groq) with a single setting.
 
 - [Highlights](#highlights)
 - [Architecture](#architecture)
+- [How an analysis operates](#how-an-analysis-operates)
+- [Web application](#web-application)
 - [Quick start](#quick-start)
-- [Use it from Claude Desktop](#use-it-from-claude-desktop)
+- [Use the engine from Claude Desktop](#use-the-engine-from-claude-desktop)
 - [MCP reference](#mcp-reference)
 - [HTTP API](#http-api)
 - [Guardrails](#guardrails)
 - [Observability](#observability)
 - [Security model](#security-model)
 - [Data sources](#data-sources)
+- [Get your own data](#get-your-own-data)
 - [Evaluation](#evaluation)
 - [Deployment](#deployment)
 - [Configuration](#configuration)
@@ -47,148 +49,333 @@ local model (Ollama) or a hosted one (Groq) with a single setting.
 
 ## Highlights
 
-| Area | What it does |
+| Area | Function |
 |---|---|
-| **MCP server + client** | Eight tools, three resources and a prompt over stdio and Streamable HTTP. The engine's agents discover the same tools over the protocol via `langchain-mcp-adapters`, exactly as an external client would. |
-| **Supervisor routing** | The supervisor's own LLM turns decide which specialist to consult and when to write the report. Each specialist receives only the tools it needs. |
-| **Document intelligence** | Disclosure PDFs and images are read through the text layer, with Tesseract OCR (Turkish + English) for scanned pages, with preprocessing for noisy scans. |
-| **Guardrails** | Prompt-injection screening (heuristics plus an optional Llama Prompt Guard classifier), spotlighting of untrusted text, numeric grounding of every figure, scope checks and an enforced disclaimer. |
-| **Observability** | Langfuse (OpenTelemetry) traces with quality scores, privacy-preserving masking, per-agent token accounting, structured JSON logs with request IDs. |
-| **Cost control** | Per-user daily analysis and token budgets, a provider circuit breaker, capped graph steps and output length, response caching. |
-| **Reports** | Downloadable PDF with KPI tiles, price/EMA/Bollinger and RSI charts, indicator tables, risk history, quality checks and source attribution. |
-| **Access control** | Platform sign-in (Azure Easy Auth or OIDC), user allowlist, an internal-only API with token authentication, rate limiting and a fail-closed production configuration. |
-| **Licensed data** | TCMB EVDS, GDELT and user-supplied files only; each source carries its terms and attribution in code. |
-| **Zero-cost hosting** | Azure Container Apps (scale-to-zero, GHCR images) with a Hugging Face Spaces fallback, both deployed by GitHub Actions. |
+| **MCP server and client** | The server has eight tools, three resources and one prompt. It operates over stdio and Streamable HTTP. The agents of the engine find their tools through MCP, as an external client does. |
+| **Supervisor routing** | The supervisor model decides which specialist to use and when to write the report. Each specialist gets only the tools that it must have. |
+| **Document intelligence** | The engine reads PDF and image disclosures. For scanned pages, it uses Tesseract OCR in Turkish and English. A filter step makes noisy scans clear before OCR. |
+| **Guardrails** | The engine finds prompt injection in all third-party text. It marks untrusted text, compares each number in the report with tool data and adds a disclaimer. |
+| **Observability** | Langfuse traces record each agent step, each tool call and the token usage. JSON logs have a request ID. |
+| **Cost control** | Each user has a daily limit for analyses and tokens. A circuit breaker stops calls after a provider rate limit. |
+| **Reports** | You can download each analysis as a PDF. The PDF has charts, indicator tables, risk history, quality results and source attribution. |
+| **Web application** | A React and TypeScript application shows each step of the process. A gateway signs the user in and keeps the API token on the server. |
+| **Access control** | Anonymous access codes (signed, time-limited, quota-bound, one device) or platform sign-in with an allowlist. An internal API with a token, rate limits, owner alerts by e-mail and a production configuration that stops if a setting is not safe. |
+| **Privacy by design** | The public mode collects no personal data: no accounts, no IP addresses in logs, no document uploads and no content in traces. |
+| **Licensed data** | The engine uses only TCMB EVDS, GDELT and files from the user. Each source has its terms and attribution in the code. |
+| **Deployment-ready** | Infrastructure as code for Azure Container Apps (primary) and Hugging Face Spaces (fallback), with manual GitHub Actions workflows. Both targets have no cost. |
 
 ---
 
 ## Architecture
 
+The diagram shows the main parts of the system and how they connect.
+
 ```mermaid
 flowchart LR
     subgraph Clients
-        UI[Streamlit UI<br/>signed-in users]
-        Ext[Claude Desktop / Cursor<br/>any MCP client]
+        WEB["React web app"]
+        EXT["Claude Desktop, Cursor<br/>or other MCP client"]
     end
 
+    GW["Web gateway<br/>sign-in, allowlist, CSRF"]
+
     subgraph Engine["Investing Engine"]
-        API[FastAPI<br/>auth · budgets · SSE · PDF]
+        API["FastAPI<br/>auth, budgets, SSE, PDF"]
         subgraph Agents["LangGraph supervisor (MCP client)"]
-            SUP{Supervisor}
-            TA[Technical]
-            NA[News risk]
-            MA[Macro]
-            DA[Disclosures]
+            SUP{"Supervisor"}
+            TA["Technical analyst"]
+            NA["News analyst"]
+            MA["Macro analyst"]
+            DA["Disclosure analyst"]
             SUP <--> TA & NA & MA & DA
         end
-        MCP[[MCP server<br/>tools · resources · prompts]]
-        GR[Guardrails<br/>injection · grounding]
-        SVC[Services<br/>allowlist · OCR · uploads]
-        HIST[(History · usage)]
+        MCP[["MCP server<br/>tools, resources, prompts"]]
+        GR["Guardrails<br/>injection, grounding"]
+        SVC["Services<br/>allowlist, OCR, uploads"]
+        HIST[("History and usage")]
     end
 
     subgraph Sources["Licensed sources"]
-        EVDS[TCMB EVDS]
-        GDELT[GDELT]
-        UP[User uploads<br/>CSV · PDF · images]
+        EVDS["TCMB EVDS"]
+        GDELT["GDELT"]
+        UP["User files<br/>CSV, Excel, PDF, images"]
     end
 
-    OBS[(Langfuse traces)]
+    OBS[("Langfuse traces")]
 
-    UI -->|internal token + identity| API
+    WEB --> GW
+    GW -->|"internal token + user identity"| API
     API --> Agents
     Agents -->|MCP| MCP
-    Ext -->|MCP stdio| MCP
+    EXT -->|"MCP stdio"| MCP
     MCP --> SVC --> GR
     SVC --> EVDS & GDELT & UP
     SVC --> HIST
     Agents -. traces .-> OBS
 ```
 
-### One analysis, end to end
+The table gives the function of each part.
+
+| Part | Function |
+|---|---|
+| Web gateway | Serves the web app. Signs the user in. Sends approved calls to the API. |
+| FastAPI | Examines the token and the user. Applies budgets. Streams events. Makes PDF reports. |
+| Supervisor | Plans the analysis. Sends work to the specialists. Writes the report. |
+| Specialists | Each specialist uses its own tools and gives a short result to the supervisor. |
+| MCP server | Gives tools, resources and prompts to the agents and to external clients. |
+| Services | Apply the data policy, read documents and keep uploads for each user. |
+| Guardrails | Remove injected instructions and examine the numbers in the report. |
+
+---
+
+## How an analysis operates
+
+### Agent routing
+
+The supervisor uses the specialists in an order that it selects. It can skip
+a specialist when the request does not need it.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Plan
+    Plan: Supervisor reads the request and past results
+    Plan --> Technical: needs price indicators
+    Plan --> News: needs headline risk
+    Plan --> Macro: needs macro data
+    Plan --> Disclosure: a document is attached
+    Technical --> Plan: result
+    News --> Plan: result
+    Macro --> Plan: result
+    Disclosure --> Plan: result
+    Plan --> Write: all necessary results are available
+    Write: Supervisor writes the report
+    Write --> Checks
+    Checks: Numbers, scope and disclaimer are examined
+    Checks --> [*]
+```
+
+### One analysis from start to end
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant U as User
+    participant GW as Web gateway
     participant API as FastAPI
     participant S as Supervisor
     participant D as Disclosure analyst
     participant M as MCP server
     participant G as Guardrails
 
-    U->>API: POST /documents (KAP filing PDF)
-    API->>M: extract text (text layer or OCR)
-    M->>G: quarantine injection, classify
-    U->>API: POST /analyses/stream {symbols, documents}
-    API->>API: auth, allowlist, budget, cache
+    U->>GW: Upload a KAP filing (PDF)
+    GW->>API: POST /documents (token + identity)
+    API->>M: Get text (text layer or OCR)
+    M->>G: Remove injected instructions
+    U->>GW: Start the analysis
+    GW->>API: POST /analyses/stream
+    API->>API: Examine auth, allowlist, budget, cache
     S->>M: prediction_history(symbol)
-    S->>D: handoff
+    S->>D: Hand over
     D->>M: disclosure_document(symbol)
-    Note over M: document_id injected server-side,<br/>scoped to the caller
-    M-->>D: spotlighted, screened text
-    S->>S: consult technical, news, macro analysts
-    S-->>API: report
-    API->>G: numeric grounding, scope, disclaimer
-    API-->>U: SSE events + final result (+ analysis_id)
-    U->>API: GET /analyses/{id}/report.pdf
+    Note over M: The server adds the document ID.<br/>The model does not see it.
+    M-->>D: Marked and screened text
+    S->>S: Use the technical, news and macro analysts
+    S-->>API: Report
+    API->>G: Examine numbers, scope and disclaimer
+    API-->>U: SSE events and the final result
+    U->>GW: Download the PDF report
+```
+
+### Pipeline stages
+
+The web app shows these stages while an analysis runs.
+
+```mermaid
+flowchart LR
+    I["1 Verify inputs"] --> P["2 Plan"]
+    P --> T["3 Technical"]
+    P --> N["4 News risk"]
+    P --> M["5 Macro"]
+    P --> D["6 Disclosures"]
+    T & N & M & D --> W["7 Write the report"]
+    W --> Q["8 Quality checks"]
+```
+
+---
+
+## Web application
+
+The web app is one page, built with React, TypeScript and Tailwind CSS. It
+shows the process in four numbered steps. Each step shows its status:
+*Locked*, *Active* or *Complete*. The app supports light and dark mode and
+phone screens.
+
+If the deployment uses access codes, the app first asks for a code. A
+**Privacy** link on each screen gives the privacy notice.
+
+```mermaid
+flowchart TD
+    S1["Step 1: Choose instruments<br/>Select up to 3"] --> S2
+    S2["Step 2: Provide data<br/>Upload a price file for each equity<br/>Add a KAP filing (optional)"] --> S3
+    S3["Step 3: Run the analysis<br/>Live stages, activity log, report draft"] --> S4
+    S4["Step 4: Review results<br/>Report, quality checks, indicators,<br/>risk history, PDF download"]
+```
+
+| Step | What you do | What the app shows |
+|---|---|---|
+| 1. Choose instruments | Search and select up to three instruments. | A label shows if an instrument needs a price file. |
+| 2. Provide data | Upload a price file for each equity. Add a disclosure if necessary (not in access-code mode). | The app validates each file immediately. It shows the number of trading days and the date range. |
+| 3. Run the analysis | Push **Start analysis**. You can cancel the analysis. | Each stage shows *Waiting*, *Running*, *Done* or *Not needed*. An activity log shows each tool call. |
+| 4. Review results | Read the report. Open the tab of each instrument. | Quality values, indicators, a news-risk meter, a risk history chart (also as a table) and a PDF download. If a value is missing, the app shows "—", never an estimate. |
+
+### Gateway request flow
+
+The browser sends all calls to the gateway. The gateway adds the internal
+token. The browser never gets the token.
+
+```mermaid
+flowchart TD
+    R["Browser request /api/..."] --> A{"Route on the allowlist?"}
+    A -- No --> E404["404"]
+    A -- Yes --> C{"POST without the CSRF header?"}
+    C -- Yes --> E403a["403"]
+    C -- No --> U{"Valid access code<br/>or signed-in user?"}
+    U -- No --> E401["401 + sign-in method"]
+    U -- Yes --> L{"Same device, not revoked,<br/>or on the allowlist?"}
+    L -- No --> E403b["403"]
+    L -- Yes --> Q{"Analysis: quota and<br/>daily cap left?"}
+    Q -- No --> E429["429"]
+    Q -- Yes --> F["Send to the API<br/>with X-Internal-Token and X-User-Id"]
+    F --> S["Stream the response to the browser"]
 ```
 
 ---
 
 ## Quick start
 
-**Requirements:** Python 3.10+, Tesseract (`tesseract-ocr`, `tesseract-ocr-tur`),
-and either a [Groq API key](https://console.groq.com) (free) or
-[Ollama](https://ollama.com). A free [EVDS API key](https://evds3.tcmb.gov.tr)
-enables index prices and macro data.
+### Prerequisites
 
-```bash
-git clone https://github.com/MuhammetAliVarlik/AgenticInvestingEngine.git
-cd AgenticInvestingEngine
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,observability]" -r ui/requirements.txt
-cp .env.example .env        # set LLM_PROVIDER and add GROQ_API_KEY, EVDS_API_KEY
-python scripts/verify_evds_series.py   # optional: confirm EVDS series codes
+- Python 3.10 or later.
+- Node.js 20 or later.
+- Tesseract OCR (`tesseract-ocr` and `tesseract-ocr-tur`).
+- A [Groq API key](https://console.groq.com) (free) or a local [Ollama](https://ollama.com) installation.
+- An [EVDS API key](https://evds3.tcmb.gov.tr) (free). The engine uses EVDS for index prices and macro data.
+
+### Install the engine
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/MuhammetAliVarlik/AgenticInvestingEngine.git
+   cd AgenticInvestingEngine
+   ```
+
+2. Make a virtual environment and install the packages:
+
+   ```bash
+   python -m venv .venv && source .venv/bin/activate
+   pip install -e ".[dev,observability]" -r ui/requirements.txt
+   ```
+
+3. Copy the configuration file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. In `.env`, set `LLM_PROVIDER`, `GROQ_API_KEY` and `EVDS_API_KEY`.
+5. Make sure that the EVDS series codes give data (optional):
+
+   ```bash
+   python scripts/verify_evds_series.py
+   ```
+
+### Start the engine with Docker (recommended)
+
+```mermaid
+flowchart LR
+    B["Browser<br/>localhost:8501"] --> UI["ui container<br/>gateway + web app"]
+    UI -->|"backend network"| API["api container<br/>localhost:8080"]
+    API -->|"llm network"| O["ollama container<br/>(optional profile)"]
+    API --> G["Groq API"]
 ```
 
-```bash
-uvicorn investing_engine.api.main:app --port 8080
-API_BASE_URL=http://localhost:8080 streamlit run ui/streamlit_app.py
-```
+1. Start the containers:
 
-Or with Docker:
+   ```bash
+   docker compose up --build                     # hosted model (Groq)
+   docker compose --profile ollama up --build    # local model (Ollama, NVIDIA GPU)
+   ```
 
-```bash
-docker compose up --build                     # hosted LLM (Groq)
-docker compose --profile ollama up --build    # local LLM (Ollama, NVIDIA GPU)
-```
+2. Open the web app at http://localhost:8501.
 
 | Service | URL |
 |---|---|
-| Streamlit UI | http://localhost:8501 |
-| API + OpenAPI docs | http://localhost:8080/docs |
+| Web app | http://localhost:8501 |
+| API and OpenAPI documentation | http://localhost:8080/docs |
+
+### Start the engine without Docker
+
+1. Start the API:
+
+   ```bash
+   uvicorn investing_engine.api.main:app --port 8080
+   ```
+
+2. Build the web app:
+
+   ```bash
+   cd ui && npm ci && npm run build
+   ```
+
+3. Start the gateway in the `ui` directory:
+
+   ```bash
+   API_BASE_URL=http://localhost:8080 uvicorn gateway.app:create_app --factory --port 8501
+   ```
+
+4. For front-end work, also run `npm run dev` in `ui`. Vite serves the app at
+   http://localhost:5173 and sends API calls to the gateway.
+5. To look at the interface without a backend, run `VITE_MOCK=1 npm run dev`.
+   The app then shows sample data and a **Sample data** label. Production
+   builds never contain the sample data.
 
 ---
 
-## Use it from Claude Desktop
+## Use the engine from Claude Desktop
 
-```json
-{
-  "mcpServers": {
-    "investing-engine": {
-      "command": "/absolute/path/to/.venv/bin/investing-engine-mcp",
-      "env": { "EVDS_API_KEY": "your-key" }
-    }
-  }
-}
-```
+1. Add this entry to the Claude Desktop configuration:
 
-Then ask, for example: *"Use the investment_report prompt for XU100."* To
-explore the server interactively:
+   ```json
+   {
+     "mcpServers": {
+       "investing-engine": {
+         "command": "/absolute/path/to/.venv/bin/investing-engine-mcp",
+         "env": { "EVDS_API_KEY": "your-key" }
+       }
+     }
+   }
+   ```
+
+2. Restart Claude Desktop.
+3. Write a request, for example: *"Use the investment_report prompt for XU100."*
+
+To examine the server with an interactive tool, use the MCP Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector .venv/bin/investing-engine-mcp
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Claude Desktop
+    participant S as investing-engine-mcp (stdio)
+    participant E as EVDS / GDELT
+    C->>S: list tools, resources, prompts
+    C->>S: call technical_snapshot("XU100")
+    S->>E: get data
+    E-->>S: data
+    S-->>C: indicators + attribution
 ```
 
 ---
@@ -197,46 +384,69 @@ npx @modelcontextprotocol/inspector .venv/bin/investing-engine-mcp
 
 ### Tools
 
-| Tool | Description | Annotations |
+| Tool | Function | Type |
 |---|---|---|
-| `list_instruments` | Supported instruments and whether public prices exist | read-only |
-| `technical_snapshot(symbol, dataset_id?)` | EMA34/89, MACD, Bollinger %B, RSI and RSI-Fibonacci levels; ATR, ADX, Stochastic and OBV with OHLCV; RandomForest next-period RSI forecast mapped to a signal | read-only |
-| `macro_snapshot` | USD/TRY, EUR/TRY, CBRT funding rate and CPI inflation with recent changes | read-only |
-| `news_headlines(symbol, days?, limit?)` | Screened headline metadata and GDELT average tone | read-only |
-| `disclosure_document(symbol, document_id?)` | Screened text of an uploaded filing with extraction and OCR details | read-only |
-| `prediction_history(symbol, limit?)` | The engine's previous analyses of an instrument | read-only |
-| `upload_price_csv(symbol, csv_text)` | Register the caller's own daily OHLCV export | write, caller-scoped |
-| `upload_document(symbol, filename, content_base64)` | Register a PDF/PNG/JPEG filing; scanned pages are OCR'd | write, caller-scoped |
+| `list_instruments` | Gives the supported instruments. Shows if public prices are available. | Read-only |
+| `technical_snapshot(symbol, dataset_id?)` | Gives EMA 34/89, MACD, Bollinger %B, RSI and RSI Fibonacci levels. With OHLCV data, also ATR, ADX, Stochastic and OBV. A RandomForest model forecasts the next RSI value. | Read-only |
+| `macro_snapshot` | Gives USD/TRY, EUR/TRY, the CBRT funding rate and CPI inflation, with recent changes. | Read-only |
+| `news_headlines(symbol, days?, limit?)` | Gives screened headline metadata and the GDELT average tone. | Read-only |
+| `disclosure_document(symbol, document_id?)` | Gives the screened text of an uploaded filing, with extraction and OCR details. | Read-only |
+| `prediction_history(symbol, limit?)` | Gives the previous analyses of an instrument. | Read-only |
+| `upload_price_csv(symbol, csv_text)` | Records a daily OHLCV export from the caller. | Write, for the caller only |
+| `upload_document(symbol, filename, content_base64)` | Records a PDF, PNG or JPEG filing. OCR reads scanned pages. | Write, for the caller only |
 
 ### Resources and prompts
 
-| URI / name | Content |
+| URI or name | Content |
 |---|---|
 | `instruments://universe` | All supported instruments |
 | `sources://attribution` | Active data sources, their terms and attribution |
-| `history://{symbol}` | Full analysis timeline for an instrument |
-| prompt `investment_report(symbol)` | Guided multi-source research workflow |
+| `history://{symbol}` | All past analyses of an instrument |
+| Prompt `investment_report(symbol)` | A guided research workflow with many sources |
 
-Upload identifiers never reach the engine's own agents: they are stripped from
-the tool schemas the model sees and injected server-side by a tool-call
-interceptor for the authenticated caller.
+The agents of the engine do not see upload IDs. The system removes these IDs
+from the tool schemas. An interceptor on the server adds the correct ID for
+the signed-in caller.
+
+```mermaid
+flowchart LR
+    M["Model tool call<br/>technical_snapshot(symbol)"] --> I["Interceptor"]
+    I -->|"adds dataset_id of this user"| S["MCP server"]
+    S -->|"examines the owner again"| D[("Upload store")]
+```
 
 ---
 
 ## HTTP API
 
-| Method | Path | Purpose |
+| Method | Path | Function |
 |---|---|---|
-| `GET` | `/healthz` | Liveness and version (unauthenticated) |
-| `GET` | `/instruments` · `/sources` | Reference data |
-| `POST` | `/datasets` | Upload an OHLCV CSV → `dataset_id` |
-| `POST` | `/documents` | Upload a disclosure (PDF/PNG/JPEG) → `document_id`, pages, OCR details |
-| `GET` | `/technical/{symbol}` | Indicators and forecast only, no LLM |
-| `POST` | `/analyses` | Full multi-agent analysis |
-| `POST` | `/analyses/stream` | The same as server-sent events |
-| `GET` | `/analyses/{id}/report.pdf` | Download the analysis as a PDF |
-| `GET` | `/history/{symbol}` | Stored analysis timeline |
-| `GET` | `/usage` | The caller's consumption against today's budget |
+| `GET` | `/healthz` | Shows that the service operates, and its version. No auth. |
+| `GET` | `/instruments`, `/sources` | Reference data |
+| `POST` | `/datasets` | Uploads an OHLCV CSV or Excel file. Returns `dataset_id`. |
+| `POST` | `/documents` | Uploads a PDF, PNG or JPEG disclosure. Returns `document_id`, pages and OCR details. |
+| `GET` | `/technical/{symbol}` | Gives indicators and the forecast only. No model call. |
+| `POST` | `/analyses` | Runs a full multi-agent analysis. |
+| `POST` | `/analyses/stream` | Runs the same analysis and sends server-sent events. |
+| `GET` | `/analyses/{id}/report.pdf` | Downloads the analysis as a PDF. |
+| `GET` | `/history/{symbol}` | Gives the stored analyses of an instrument. |
+| `GET` | `/usage` | Gives the usage of the caller against the daily budget. |
+
+### Stream events
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    C->>A: POST /analyses/stream
+    A-->>C: status (for example "Consulting news_analyst")
+    A-->>C: tool_call / tool_result
+    A-->>C: token (report text)
+    A-->>C: error (only if a step fails)
+    A-->>C: final (structured result)
+```
+
+### Example result
 
 ```json
 {
@@ -259,152 +469,309 @@ interceptor for the authenticated caller.
 
 ```mermaid
 flowchart LR
-    T[Third-party text<br/>headlines · filings · OCR output] --> H[Heuristic scan<br/>EN + TR patterns]
-    H -->|flagged sentence| Q[Quarantine marker]
-    H --> C{Prompt Guard<br/>classifier, optional}
-    C -->|score ≥ threshold| Q
-    C --> SP[Spotlight<br/>random per-request boundary]
+    T["Third-party text<br/>headlines, filings, OCR output"] --> H["Pattern scan<br/>English and Turkish"]
+    H -->|"flagged sentence"| Q["Quarantine marker"]
+    H --> C{"Prompt Guard<br/>classifier (optional)"}
+    C -->|"score at or above threshold"| Q
+    C --> SP["Spotlight<br/>random boundary for each request"]
     Q --> SP
-    SP --> A[Agents]
-    A --> R[Report]
-    R --> NG[Numeric grounding<br/>vs. tool outputs]
-    NG --> SC[Scope check<br/>requested symbols only]
-    SC --> DC[Disclaimer enforced]
-    DC --> OUT[Response + trace scores]
+    SP --> A["Agents"]
+    A --> R["Report"]
+    R --> NG["Numeric grounding<br/>against tool data"]
+    NG --> SC["Scope check<br/>requested symbols only"]
+    SC --> DC["Disclaimer added"]
+    DC --> OUT["Response and trace scores"]
 ```
 
-- **Input screening.** Instruction overrides, role manipulation, smuggled
-  chat markup, tool-call injection and exfiltration patterns in English and
-  Turkish are detected sentence by sentence. Payloads split by PDF line wrapping
-  are removed whole. An optional Llama Prompt Guard 2 classifier on Groq adds
-  model-based detection. It runs once per document and fails open to the
-  heuristic layer.
-- **Spotlighting.** Remaining third-party text is wrapped in a boundary with a
-  random per-request id; any attempt to forge the boundary is neutralised, and
-  every agent prompt treats the content as data.
-- **Least privilege.** Tools are read-only and cannot fetch arbitrary URLs.
-  Even a successful injection can only distort a report, never exfiltrate data
-  or take actions.
-- **Output checks.** Every precise figure in the report must match a value a
-  tool returned (within the rounding shown). Sections are limited to the
-  requested symbols. The not-investment-advice disclaimer is enforced. Results
-  are returned with the analysis and recorded as trace scores.
+- **Input screening.** The engine examines each sentence for instruction
+  overrides, role changes, chat markup, tool-call injection and data
+  exfiltration. It uses English and Turkish patterns. It removes an attack
+  also when PDF line breaks split it.
+- **Optional classifier.** A Llama Prompt Guard 2 classifier on Groq can add a
+  second check. It runs one time for each document. If it fails, the pattern
+  scan stays active.
+- **Spotlighting.** The engine puts all remaining third-party text inside a
+  boundary with a random ID. It removes attempts to copy this boundary. Each
+  agent prompt tells the model that this text is data, not instructions.
+- **Least privilege.** All agent tools are read-only. They cannot open a URL
+  that a model selects. Thus an injection can change a report but cannot send
+  data out or do actions.
+- **Output checks.** Each precise number in the report must agree with a value
+  from a tool. The report can only discuss the requested symbols. The engine
+  adds the disclaimer if it is missing. The API returns all results with the
+  analysis and records them as trace scores.
 
 ---
 
 ## Observability
 
-- **Tracing:** each analysis is a Langfuse trace (OpenTelemetry) covering
-  supervisor decisions, specialist turns, MCP tool calls and token usage, with
-  `grounding`, `scope_ok` and `injection_flags` scores attached.
-- **Privacy:** user identities are salted hashes. Traced payloads have long
-  strings truncated and credential-like values redacted, so uploaded documents
-  are never exported in full.
-- **Correlation:** every request carries an `X-Request-ID` that appears in JSON
-  logs and as the trace session id.
-- **Budgets:** per-user daily analysis and token budgets return `429` with
-  `Retry-After` before any work starts. After a provider rate limit, a circuit
-  breaker fails fast for a cool-down period. Graph steps and output tokens are
-  capped.
-- **Capacity planning:** `scripts/token_profile.py` reports per-agent p50/p95
-  token usage and the analyses per day and per minute the free tier allows.
+```mermaid
+flowchart LR
+    REQ["Request<br/>X-Request-ID"] --> LOG["JSON logs"]
+    REQ --> TR["Langfuse trace"]
+    TR --> SP["Spans: supervisor, specialists,<br/>MCP tool calls"]
+    TR --> SC["Scores: grounding,<br/>scope_ok, injection_flags"]
+    TR --> TK["Token usage<br/>for each agent"]
+    BUD["Usage store"] --> LIM{"Daily limit reached?"}
+    LIM -- Yes --> R429["429 + Retry-After"]
+    LIM -- No --> RUN["Run the analysis"]
+```
+
+- **Tracing.** Each analysis is one Langfuse trace (OpenTelemetry). The trace
+  records supervisor decisions, specialist turns, MCP tool calls and token
+  usage.
+- **Privacy.** The trace keeps a salted hash of each user identity. It cuts
+  long strings and removes values that look like credentials. Thus a trace
+  never contains a full uploaded document.
+- **Correlation.** Each request has an `X-Request-ID`. This ID is in the JSON
+  logs and is the session ID of the trace.
+- **Budgets.** Each user has a daily limit for analyses and tokens. When a
+  user reaches a limit, the API returns `429` with `Retry-After` before work
+  starts.
+- **Circuit breaker.** After a provider rate limit, the API stops new model
+  calls for a cool-down period.
+- **Capacity planning.** `scripts/token_profile.py` measures p50 and p95 token
+  usage for each agent. It also calculates the analyses for each day and each
+  minute that the free tier permits.
 
 ---
 
 ## Security model
 
+```mermaid
+flowchart TB
+    U["User"] --> SI["Platform sign-in<br/>Easy Auth or OIDC"]
+    SI --> GW["Gateway: allowlist, CSRF header,<br/>route allowlist, size limit"]
+    GW --> API["API: internal token, allowlist again,<br/>rate limit, daily budget"]
+    API --> MOD["Model boundary: hidden upload IDs,<br/>screened and marked text"]
+    MOD --> OUT["Output: grounding, safe PDF,<br/>safe error messages"]
+```
+
 | Layer | Control |
 |---|---|
-| Identity | Platform sign-in (Azure Easy Auth with GitHub, or Streamlit OIDC with Google) followed by an allowlist check in the UI and again in the API. |
-| Network | Only the UI is public. The API has internal ingress (Azure) or binds to loopback (Spaces) and requires a shared internal token, compared in constant time. Local ports bind to `127.0.0.1`. |
-| CSRF | Browser-side protection comes from Streamlit's XSRF tokens. The API authenticates with header tokens rather than cookies, so a cross-site request cannot carry credentials. |
-| Abuse | Per-user rate limiting, daily budgets, request size limits, symbol allowlist and a cap on symbols per request. |
-| Uploads | Magic-byte type detection, size, row and page limits, encrypted-PDF rejection, decompression-bomb guard, OCR timeouts. Uploads stay in memory, are owner-scoped and expire after two hours. |
-| Model boundary | Upload ids are hidden from the model and injected server-side; third-party text is screened and spotlighted. |
-| Output | PDF rendering escapes all content, drops link targets and blocks every resource fetch (no SSRF or local file reads). Errors are user-safe; internals are logged server-side only. |
-| Configuration | A production deployment refuses to start with auth disabled, a weak internal token, an empty allowlist, the default telemetry salt or a personal-use data source enabled. Interactive docs are disabled in production. |
-| HTTP | CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS in production. |
-| Runtime | Multi-stage images, non-root users, read-only root filesystem, all capabilities dropped, `no-new-privileges`. |
-| Supply chain | Pinned dependencies, `pip-audit`, CodeQL, gitleaks, Trivy image scanning and Dependabot. |
-| Deployment | GitHub → Azure via OpenID Connect (no stored cloud credentials), role scoped to one resource group, secrets only in platform secret stores. |
+| Identity | Anonymous access codes, signed with HMAC-SHA256 and bound to one device. Or platform sign-in (Azure Easy Auth with GitHub, or OpenID Connect with Google in the gateway) with an allowlist. The API examines the identity again. |
+| Network | Only the web gateway is public. The gateway adds the internal token on the server and sends only approved API routes. The API has internal ingress on Azure and listens on loopback on Spaces. The API compares the token in constant time. Local ports listen on `127.0.0.1` only. |
+| Browser | Each POST request must have a custom header. A form from a different site cannot set this header. Session cookies are `SameSite=Lax`, signed, and HTTPS-only in production. The Content Security Policy permits scripts and styles from the app origin only. The app shows model output as Markdown without raw HTML. |
+| Abuse | Rate limits for each user, daily budgets, request size limits, a symbol allowlist and a maximum number of symbols for each request. |
+| Uploads | The engine identifies the file type from its first bytes. It applies size, row and page limits. It does not accept encrypted PDFs or compressed files that expand too much. OCR has a time limit. Uploads stay in memory, belong to one user and expire after two hours. |
+| Model boundary | The model does not see upload IDs. The server adds them. The engine screens and marks all third-party text. |
+| Output | The PDF renderer escapes all content, removes link targets and blocks all resource fetches. Thus it cannot read local files or open network connections. Error messages are safe for users. The server logs the internal details. |
+| Configuration | A production deployment does not start if a setting is not safe. Examples: auth is off, a weak internal token, an empty allowlist, the default telemetry salt or a personal-use data source. Interactive API documentation is off in production. |
+| HTTP | CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, and HSTS in production. |
+| Runtime | Multi-stage images, users that are not root, a read-only root file system, no Linux capabilities and `no-new-privileges`. |
+| Supply chain | Pinned dependencies, `pip-audit`, `npm audit`, CodeQL, gitleaks, Trivy image scans and Dependabot. |
+| Deployment | GitHub connects to Azure through OpenID Connect. Thus no cloud credentials are stored. The role is limited to one resource group. Secrets are only in the secret stores of the platforms. |
 
 ---
 
 ## Data sources
 
-| Source | Used for | Terms |
+| Source | Use | Terms |
 |---|---|---|
-| TCMB EVDS | BIST 100 closes, FX, funding rate, CPI | Free use and republication with attribution |
-| GDELT Project | Headline metadata and tone | Unrestricted use with citation |
-| User uploads | Equity OHLCV, disclosure documents | The user's own copies, processed in memory |
+| TCMB EVDS | BIST 100 closes, exchange rates, funding rate, CPI | Free use and republication with attribution |
+| GDELT Project | Headline metadata and tone | Use without limits, with a citation |
+| User files | Equity OHLCV data and disclosure documents | Copies that belong to the user. The engine processes them in memory. |
 
-Details, including sources deliberately excluded, are in
-[DATA_SOURCES.md](DATA_SOURCES.md).
+[DATA_SOURCES.md](DATA_SOURCES.md) gives all details. It also gives the
+sources that the engine does not use, and the reasons.
+
+---
+
+## Get your own data
+
+The BIST 100 index, macro data and news do not need a file. Equity prices on
+Borsa İstanbul are licensed data. Thus, for each equity, you must upload a
+daily price export that you have access to. The engine supports the BIST 30
+equities and Arçelik.
+
+```mermaid
+flowchart TD
+    S{"Which instrument?"} -->|"XU100 index"| N["No file necessary<br/>EVDS gives the prices"]
+    S -->|"Equity, for example THYAO"| F{"Where to get the prices?"}
+    F --> B["Brokerage platform<br/>Export to Excel or CSV"]
+    F --> I["İş Yatırım historical prices<br/>Download as Excel"]
+    B & I --> U["Upload the file as it is<br/>in step 2 of the web app"]
+    U --> V{"Valid?"}
+    V -- Yes --> OK["The app shows the trading days<br/>and the date range"]
+    V -- No --> ER["The app shows the error<br/>Replace the file"]
+```
+
+### Get the price history (necessary for equities)
+
+1. Get the daily prices of the equity from one of these sources:
+   - Your brokerage platform. Most platforms have an *Export to Excel/CSV*
+     function on the price chart or the history view.
+   - The [İş Yatırım historical price data](https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/Tarihsel-Fiyat-Bilgileri.aspx)
+     page. Select the equity and the date range. Then download the Excel file.
+2. In the web app, select the equity.
+3. Upload the file without changes. The app accepts Excel (`.xlsx`) and CSV files.
+
+| Item | Specification |
+|---|---|
+| Columns | `Date`/`Tarih` and `Close`/`Kapanış` are necessary. The engine also uses `Open`/`Açılış`, `High`/`Yüksek`/`Max`, `Low`/`Düşük`/`Min` and `Volume`/`Hacim` if they are in the file. It ignores unit suffixes such as `Kapanış(TL)`. Thus İş Yatırım files operate without changes. |
+| Format | Excel (first worksheet), international CSV (`,` separator, `.` decimals) or Turkish CSV (`;` separator, `,` decimals). CSV files must use UTF-8. |
+| Length | Minimum 30 trading days. One to two years gives the most reliable indicators. |
+| Limits | 5 MB and 5,000 rows |
+
+Some files use a different name for the closing price, for example `Price` or
+`Şimdi` from Investing.com. Change the name of this column to `Close` before
+you upload the file.
+
+### Get a disclosure document (optional)
+
+1. Open the page of the company on [kap.org.tr](https://www.kap.org.tr).
+2. Select a disclosure in *Bildirimler*.
+3. Download the PDF attachment. If there is no attachment, use *Print → Save as PDF*.
+4. Upload the PDF in step 2 of the web app.
+
+The app also accepts scanned PDFs and PNG or JPEG images. OCR reads them.
+
+### Make a sample file for local tests
+
+> **Caution:** The terms of Yahoo Finance permit personal use only. Do not use
+> this data in a deployed system.
+
+1. Install the local extra:
+
+   ```bash
+   pip install -e ".[local]"
+   ```
+
+2. Make the sample file:
+
+   ```bash
+   python -c "import yfinance as yf; yf.download('THYAO.IS', period='2y', auto_adjust=False).droplevel(1, axis=1).to_csv('THYAO.csv')"
+   ```
 
 ---
 
 ## Evaluation
 
-| Suite | What it measures | How to run |
+| Suite | Measurement | Command |
 |---|---|---|
-| Unit and end-to-end tests | 220+ tests in a few minutes, without network, GPU or LLM. A scripted chat model drives the real supervisor and MCP server, covering routing, identity propagation, guardrails, OCR, PDF rendering and authentication. Coverage above 90%. | `pytest --cov` |
-| Injection screening | 19 English and Turkish attacks from `tests/fixtures/redteam.json` are all detected, and none of 12 realistic filing and headline sentences are flagged. | `pytest tests/unit/test_guardrails.py` |
-| Live attack success rate | Each attack is embedded in a filing and a full analysis is run with the real LLM, with guardrails on and off. | `python scripts/redteam_eval.py` |
-| OCR quality | CER/WER on Turkish and English passages under skew, blur, noise and JPEG degradation. Median-filter preprocessing brings CER on noisy synthetic scans from 12.7% to 0%. | `python scripts/ocr_eval.py` |
-| Token and capacity profile | Per-agent p50/p95 tokens and free-tier throughput. | `python scripts/token_profile.py` |
-| Signal backtest | Direction of the close five trading days after each RSI-threshold signal (5 BIST names, two years, run 2026-10-01): bullish 87.2% over 39 signals, bearish 45.0% over 220. Overbought readings on these names tend to mark momentum continuation, which is why the supervisor weighs the signal against trend and news. | `python scripts/backtest.py` |
+| Unit and end-to-end tests | More than 220 tests. They run without network, GPU or model. A scripted chat model operates the real supervisor and MCP server. The tests cover routing, identity, guardrails, OCR, PDF output, the gateway and authentication. Coverage is more than 90%. | `pytest --cov` |
+| Injection screening | The engine finds all 19 English and Turkish attacks in `tests/fixtures/redteam.json`. It flags none of 12 normal filing and headline sentences. | `pytest tests/unit/test_guardrails.py` |
+| Live attack success rate | The script puts each attack in a filing. Then it runs a full analysis with the real model, with guardrails on and off. | `python scripts/redteam_eval.py` |
+| OCR quality | Character and word error rates on Turkish and English text with skew, blur, noise and JPEG damage. The filter step decreases the character error rate on noisy scans from 12.7% to 0%. | `python scripts/ocr_eval.py` |
+| Token and capacity profile | Token usage (p50 and p95) for each agent, and the throughput of the free tier. | `python scripts/token_profile.py` |
+| Signal backtest | Direction of the close five trading days after each RSI signal. Five BIST equities, two years, run on 2026-10-01. Bullish signals: 87.2% correct (39 signals). Bearish signals: 45.0% correct (220 signals). On these equities, high RSI values often show that the trend continues. Thus the supervisor compares the signal with the trend and the news. | `python scripts/backtest.py` |
+
+```mermaid
+flowchart LR
+    U["Unit tests<br/>no network"] --> E["End-to-end tests<br/>scripted model"]
+    E --> R["Red-team eval<br/>real model"]
+    R --> P["Token profile<br/>capacity plan"]
+```
 
 ---
 
 ## Deployment
 
-Two zero-cost targets, deployed by manual GitHub Actions workflows:
+The project operates as a local system (refer to [Quick start](#quick-start)).
+The deployment files are ready, but the project is not deployed. A deployment
+for other users needs a data protection review first. Refer to
+[Personal data](docs/DEPLOYMENT.md#personal-data).
 
-- **Azure Container Apps (primary).** Uses an Azure for Students subscription
-  with no payment method. The public UI sits behind GitHub sign-in and the API
-  is internal-only. Both scale to zero and pull images from GitHub Container
-  Registry. Infrastructure is defined in [`deploy/azure/main.bicep`](deploy/azure/main.bicep).
-- **Hugging Face Spaces (fallback).** A single container with Google sign-in
-  and the API on loopback.
+There are two deployment targets. Both have no cost. A manual GitHub Actions
+workflow deploys to each target.
 
-Step-by-step instructions, the secret checklist and operations notes are in
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+```mermaid
+flowchart LR
+    L["Local system<br/>docker compose<br/>(current operation)"] -->|"after a data protection review"| D["Deployment<br/>Azure or Hugging Face"]
+```
+
+```mermaid
+flowchart TB
+    subgraph Azure["Azure Container Apps (primary)"]
+        EA["Easy Auth (GitHub)"] --> UIA["ui app<br/>public, scale to zero"]
+        UIA --> APIA["api app<br/>internal ingress only"]
+    end
+    subgraph HF["Hugging Face Spaces (fallback)"]
+        GWH["Gateway with Google OIDC<br/>public port 7860"] --> APIH["API on loopback<br/>same container"]
+    end
+    GH["GitHub Actions"] -->|"OIDC, images from GHCR"| Azure
+    GH -->|"HF token"| HF
+```
+
+- **Azure Container Apps (primary).** It uses an Azure for Students
+  subscription without a payment method. GitHub sign-in protects the public
+  app. The API has no public endpoint. Both apps scale to zero. The images
+  come from GitHub Container Registry. [`deploy/azure/main.bicep`](deploy/azure/main.bicep)
+  defines the infrastructure.
+- **Hugging Face Spaces (fallback).** One container. The gateway signs users
+  in with Google. The API listens on loopback only.
+
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) gives the step-by-step procedures,
+the list of secrets and the operation tasks.
 
 ---
 
 ## Configuration
 
-All settings are environment variables (or `.env`); see [`.env.example`](.env.example).
+All settings are environment variables. You can also put them in `.env`.
+Refer to [`.env.example`](.env.example).
 
-| Variable | Default | Purpose |
+| Variable | Default | Function |
 |---|---|---|
 | `LLM_PROVIDER` | `ollama` | `ollama` or `groq` |
-| `GROQ_API_KEY` · `GROQ_MODEL` | – · `llama-3.3-70b-versatile` | Hosted inference |
-| `OLLAMA_BASE_URL` · `OLLAMA_MODEL` | `http://localhost:11434` · `llama3.1:latest` | Local inference |
-| `EVDS_API_KEY` | – | Index prices and macro data |
+| `GROQ_API_KEY`, `GROQ_MODEL` | none, `openai/gpt-oss-120b` | Hosted model |
+| `LLM_MAX_RETRIES` | `6` | Retries after a rate limit of the model provider. The client waits as long as the provider asks. |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | `http://localhost:11434`, `llama3.1:latest` | Local model |
+| `EVDS_API_KEY` | none | Index prices and macro data |
 | `ENABLE_PROMPT_GUARD` | `false` | Model-based injection classifier on Groq |
-| `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_SECRET_KEY` | – | Enable tracing |
-| `TELEMETRY_SALT` | dev value | Salt for hashed identities (set in production) |
-| `DAILY_ANALYSES_PER_USER` · `DAILY_TOKENS_PER_USER` | `20` · `200000` | Per-user budgets |
-| `AUTH_MODE` · `INTERNAL_API_TOKEN` · `ALLOWED_USERS` | `none` · – · – | API access control |
-| `ENVIRONMENT` | `development` | `production` enables fail-closed checks |
-| `MAX_SYMBOLS_PER_REQUEST` | `3` | Upper bound on work per request |
-| `ENABLE_YFINANCE` | `false` | Local-only Yahoo Finance provider |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` | none | Tracing |
+| `TRACE_CONTENT` | `true` | `false` keeps prompt and document text out of traces (public deployments) |
+| `TELEMETRY_SALT` | development value | Salt for hashed identities. Set it in production. |
+| `DAILY_ANALYSES_PER_USER`, `DAILY_TOKENS_PER_USER` | `20`, `200000` | Budgets for each user |
+| `AUTH_MODE`, `INTERNAL_API_TOKEN`, `ALLOWED_USERS` | `none`, none, none | API access control |
+| `ENVIRONMENT` | `development` | `production` starts the safety checks |
+| `MAX_SYMBOLS_PER_REQUEST` | `3` | Maximum work for each request |
+| `ENABLE_YFINANCE` | `false` | Yahoo Finance provider, for local use only |
+
+The gateway uses these variables:
+
+| Variable | Default | Function |
+|---|---|---|
+| `API_BASE_URL` | `http://localhost:8080` | Address of the API |
+| `AUTH_PROVIDER` | `none` | `none`, `accesscode`, `easyauth` or `oidc` |
+| `ALLOWED_USERS` | none | Necessary for `easyauth` and `oidc` |
+| `ACCESS_CODE_SECRET` | none | Key that signs access codes (minimum 32 characters) |
+| `GLOBAL_DAILY_ANALYSES` | `50` | Maximum analyses each day for all access codes together |
+| `GATEWAY_DB_PATH` | `/tmp/gateway/gateway.db` | Code store: device bindings, usage, revocations |
+| `REVOKED_CODE_IDS` | none | Code IDs that stay revoked after a restart |
+| `ALERT_EMAIL_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | none | Owner alerts by e-mail |
+| `DIGEST_HOUR_UTC` | `6` | Hour of the daily summary e-mail |
+| `INTERNAL_API_TOKEN` | none | Token that the gateway sends to the API |
+| `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_COOKIE_SECRET`, `OIDC_REDIRECT_URI` | none | Necessary when `AUTH_PROVIDER=oidc` |
+| `MAX_BODY_BYTES` | `12582912` | Maximum size of an upload request |
 
 ---
 
 ## Development
 
-```bash
-pip install -e ".[dev,observability]" -r ui/requirements.txt
-ruff check src tests scripts ui && ruff format --check src tests scripts ui
-mypy                      # strict
-pytest --cov
-```
+1. Install the development packages:
 
-CI runs linting, formatting, strict type-checking and the test suite with
-coverage, plus a dependency audit. A separate security workflow runs CodeQL,
-gitleaks and Trivy.
+   ```bash
+   pip install -e ".[dev,observability]" -r ui/requirements.txt
+   ```
+
+2. Run the checks:
+
+   ```bash
+   ruff check src tests scripts ui && ruff format --check src tests scripts ui
+   mypy                                  # strict
+   pytest --cov
+   (cd ui && npm ci && npm run build)    # web app type check and build
+   ```
+
+CI runs these checks on each pull request.
+
+```mermaid
+flowchart LR
+    PR["Pull request"] --> Q["quality job<br/>ruff, mypy, pytest,<br/>pip-audit"]
+    PR --> W["web job<br/>npm ci, tsc, vite build,<br/>npm audit"]
+    PR --> S["security workflow<br/>CodeQL, gitleaks, Trivy"]
+```
 
 ---
 
@@ -412,23 +779,25 @@ gitleaks and Trivy.
 
 ```
 src/investing_engine/
-├── agents/          # Supervisor graph, prompts, MCP client session, LLM factory
-├── analysis/        # Indicator engineering and the RSI forecaster
+├── agents/          # Supervisor graph, prompts, MCP client session, model factory
+├── analysis/        # Indicators and the RSI forecaster
 ├── api/             # FastAPI app and security (auth, rate limits, headers)
 ├── guardrails/      # Injection screening, Prompt Guard client, report checks
-├── ingestion/       # PDF/image text extraction, OCR and its metrics
+├── ingestion/       # Text from PDFs and images, OCR and its metrics
 ├── mcp_server/      # MCP tools, resources, prompts and CLI entry point
-├── observability/   # Langfuse tracing, JSON logging, usage budgets
-├── providers/       # EVDS, GDELT, CSV upload, local-only Yahoo
+├── observability/   # Langfuse tracing, JSON logs, usage budgets
+├── providers/       # EVDS, GDELT, CSV and Excel upload, local-only Yahoo
 ├── reporting/       # PDF reports: template, charts, safe Markdown
 ├── config.py        # Typed settings
 ├── history.py       # Prediction history (SQLite)
-├── services.py      # Data-licensing policy, caching, uploads
+├── services.py      # Data policy, cache, uploads
 ├── universe.py      # Instrument allowlist
-└── uploads.py       # Owner-scoped, expiring upload store
-ui/                  # Streamlit front end and sign-in
+└── uploads.py       # Upload store for each owner, with expiry
+ui/
+├── gateway/         # Sign-in, allowlist, CSRF and API relay (Starlette)
+└── src/             # React + TypeScript single-page app
 deploy/              # Azure Bicep template, Hugging Face Spaces image
-scripts/             # Backtest, benchmarks, red-team, OCR and token profiling
+scripts/             # Backtest, benchmarks, red-team, OCR and token profile
 tests/               # Unit and end-to-end tests, red-team corpus
 ```
 
@@ -436,7 +805,7 @@ tests/               # Unit and end-to-end tests, red-team corpus
 
 ## Roadmap
 
-- Basket analytics: correlation, volatility, drawdown and risk contribution for a user-defined set of instruments
+- Basket analytics: correlation, volatility, drawdown and risk contribution for a set of instruments
 - Remote MCP access with OAuth 2.1 bearer tokens
 - Table extraction from scanned financial statements
 
@@ -444,4 +813,5 @@ tests/               # Unit and end-to-end tests, red-team corpus
 
 ## License
 
-[MIT](LICENSE). Outputs are for research and education and are not investment advice.
+[MIT](LICENSE). The output of this project is for research and education. It
+is not investment advice.
