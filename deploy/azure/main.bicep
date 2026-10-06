@@ -5,10 +5,12 @@
 // from GitHub Container Registry (no Azure Container Registry fee) and no Log
 // Analytics workspace is created (use `az containerapp logs show` instead).
 //
-// Security model: only the UI has public ingress, and it sits behind Container
-// Apps built-in authentication (GitHub sign-in). The API has internal ingress
-// only and additionally requires the shared internal token and an allowlisted
-// user identity on every request.
+// Security model: only the UI has public ingress. The API has internal ingress
+// only and requires the shared internal token and an allowed identity on every
+// request. Sign-in (signInMode):
+//   accesscode - anonymous, time-limited access codes checked by the gateway;
+//                no accounts and no personal data (default)
+//   github     - Container Apps built-in authentication (GitHub) plus an allowlist
 
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
@@ -22,14 +24,33 @@ param prefix string = 'invengine'
 param apiImage string
 param uiImage string
 
-@description('Comma-separated allowlist, e.g. "github:octocat,alice@example.com".')
-param allowedUsers string
+@description('accesscode: anonymous access codes (default). github: GitHub sign-in with an allowlist.')
+@allowed(['accesscode', 'github'])
+param signInMode string = 'accesscode'
 
-@description('GitHub OAuth app client id used by Container Apps authentication.')
-param githubClientId string
+@description('github mode only: comma-separated allowlist, e.g. "github:octocat".')
+param allowedUsers string = ''
+
+@description('github mode only: GitHub OAuth app client id used by Container Apps authentication.')
+param githubClientId string = ''
 
 @secure()
-param githubClientSecret string
+param githubClientSecret string = ''
+
+@description('accesscode mode only: secret that signs access codes (at least 32 characters).')
+@secure()
+param accessCodeSecret string = ''
+
+@description('accesscode mode only: maximum analyses per day for the whole deployment.')
+param globalDailyAnalyses int = 50
+
+@description('Optional owner alerts by e-mail (no personal data is sent).')
+param alertEmailTo string = ''
+param smtpHost string = ''
+param smtpUser string = ''
+
+@secure()
+param smtpPassword string = ''
 
 @secure()
 @minLength(32)
@@ -54,6 +75,42 @@ param enablePromptGuard bool = false
 
 var apiName = '${prefix}-api'
 var uiName = '${prefix}-ui'
+var anonymous = signInMode == 'accesscode'
+
+var uiSecrets = concat(
+  [{ name: 'internal-api-token', value: internalApiToken }],
+  anonymous
+    ? [{ name: 'access-code-secret', value: accessCodeSecret }]
+    : [{ name: 'github-client-secret', value: githubClientSecret }],
+  empty(smtpPassword) ? [] : [{ name: 'smtp-password', value: smtpPassword }]
+)
+
+var uiEnv = concat(
+  [
+    { name: 'API_BASE_URL', value: 'http://${apiName}' }
+    { name: 'ENVIRONMENT', value: 'production' }
+    { name: 'INTERNAL_API_TOKEN', secretRef: 'internal-api-token' }
+  ],
+  anonymous
+    ? [
+        { name: 'AUTH_PROVIDER', value: 'accesscode' }
+        { name: 'ACCESS_CODE_SECRET', secretRef: 'access-code-secret' }
+        { name: 'GLOBAL_DAILY_ANALYSES', value: string(globalDailyAnalyses) }
+        { name: 'GATEWAY_DB_PATH', value: '/tmp/gateway/gateway.db' }
+      ]
+    : [
+        { name: 'AUTH_PROVIDER', value: 'easyauth' }
+        { name: 'ALLOWED_USERS', value: allowedUsers }
+      ],
+  empty(alertEmailTo)
+    ? []
+    : [
+        { name: 'ALERT_EMAIL_TO', value: alertEmailTo }
+        { name: 'SMTP_HOST', value: smtpHost }
+        { name: 'SMTP_USER', value: smtpUser }
+        { name: 'SMTP_PASSWORD', secretRef: 'smtp-password' }
+      ]
+)
 
 var apiSecrets = concat(
   [
@@ -69,7 +126,10 @@ var apiEnv = concat(
   [
     { name: 'ENVIRONMENT', value: 'production' }
     { name: 'AUTH_MODE', value: 'trusted-proxy' }
-    { name: 'ALLOWED_USERS', value: allowedUsers }
+    // The gateway validates access codes; the API admits their identities only from it.
+    { name: 'ALLOWED_USERS', value: anonymous ? 'code:*' : allowedUsers }
+    // Public, anonymous deployments keep prompt and document text out of traces.
+    { name: 'TRACE_CONTENT', value: anonymous ? 'false' : 'true' }
     { name: 'INTERNAL_API_TOKEN', secretRef: 'internal-api-token' }
     { name: 'LLM_PROVIDER', value: 'groq' }
     { name: 'GROQ_API_KEY', secretRef: 'groq-api-key' }
@@ -153,14 +213,11 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = {
       ingress: {
         external: true
         targetPort: 8501
-        transport: 'auto' // HTTP/1.1 + WebSockets for Streamlit
+        transport: 'auto' // HTTP/1.1; analyses stream as server-sent events
         allowInsecure: false
         stickySessions: { affinity: 'sticky' }
       }
-      secrets: [
-        { name: 'internal-api-token', value: internalApiToken }
-        { name: 'github-client-secret', value: githubClientSecret }
-      ]
+      secrets: uiSecrets
     }
     template: {
       containers: [
@@ -168,12 +225,7 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'ui'
           image: uiImage
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
-          env: [
-            { name: 'API_BASE_URL', value: 'http://${apiName}' }
-            { name: 'AUTH_PROVIDER', value: 'easyauth' }
-            { name: 'ALLOWED_USERS', value: allowedUsers }
-            { name: 'INTERNAL_API_TOKEN', secretRef: 'internal-api-token' }
-          ]
+          env: uiEnv
         }
       ]
       scale: {
@@ -184,8 +236,8 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-// Built-in authentication: every request to the UI must be signed in with GitHub.
-resource uiAuth 'Microsoft.App/containerApps/authConfigs@2024-03-01' = {
+// Built-in authentication (github mode): every request to the UI must be signed in.
+resource uiAuth 'Microsoft.App/containerApps/authConfigs@2024-03-01' = if (!anonymous) {
   parent: ui
   name: 'current'
   properties: {
@@ -210,4 +262,4 @@ resource uiAuth 'Microsoft.App/containerApps/authConfigs@2024-03-01' = {
 }
 
 output uiUrl string = 'https://${ui.properties.configuration.ingress.fqdn}'
-output githubCallbackUrl string = 'https://${ui.properties.configuration.ingress.fqdn}/.auth/login/github/callback'
+output githubCallbackUrl string = anonymous ? '' : 'https://${ui.properties.configuration.ingress.fqdn}/.auth/login/github/callback'

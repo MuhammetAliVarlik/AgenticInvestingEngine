@@ -76,9 +76,16 @@ jobs:
           parameters: >-
             apiImage=${{ needs.images.outputs.api }}
             uiImage=${{ needs.images.outputs.ui }}
+            signInMode=${{ vars.SIGN_IN_MODE || 'accesscode' }}
             allowedUsers=${{ vars.ALLOWED_USERS }}
             githubClientId=${{ vars.GH_OAUTH_CLIENT_ID }}
             githubClientSecret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}
+            accessCodeSecret=${{ secrets.ACCESS_CODE_SECRET }}
+            globalDailyAnalyses=${{ vars.GLOBAL_DAILY_ANALYSES || 50 }}
+            alertEmailTo=${{ vars.ALERT_EMAIL_TO }}
+            smtpHost=${{ vars.SMTP_HOST }}
+            smtpUser=${{ vars.SMTP_USER }}
+            smtpPassword=${{ secrets.SMTP_PASSWORD }}
             internalApiToken=${{ secrets.INTERNAL_API_TOKEN }}
             groqApiKey=${{ secrets.GROQ_API_KEY }}
             evdsApiKey=${{ secrets.EVDS_API_KEY }}
@@ -90,6 +97,13 @@ jobs:
         run: |
           url="${{ steps.deploy.outputs.uiUrl }}"
           echo "UI: $url"
-          # Unauthenticated requests must be redirected to the sign-in page.
-          status=$(curl -s -o /dev/null -w '%{http_code}' "$url")
-          test "$status" = "302" -o "$status" = "401"
+          if [ "${{ vars.SIGN_IN_MODE || 'accesscode' }}" = "accesscode" ]; then
+            # Without a code the API relay must refuse and ask for an access code.
+            body=$(curl -s "$url/api/me")
+            echo "$body" | grep -q '"method":"code"'
+            test "$(curl -s -o /dev/null -w '%{http_code}' "$url/api/instruments")" = "401"
+          else
+            # Unauthenticated requests must be redirected to the sign-in page.
+            status=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            test "$status" = "302" -o "$status" = "401"
+          fi

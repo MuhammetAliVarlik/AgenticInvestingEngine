@@ -23,7 +23,7 @@ jobs:
           # The Space README carries the Spaces configuration header (it also
           # serves as the package's long description inside the image).
           cp deploy/hf-spaces/README.space.md space/README.md
-          rm -f space/ui/.streamlit/secrets.toml
+          rm -rf space/ui/node_modules space/ui/dist
 
       - name: Upload
         env:

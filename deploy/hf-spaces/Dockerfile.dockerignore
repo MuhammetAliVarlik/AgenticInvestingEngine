@@ -12,7 +12,8 @@
 .claude/
 data/
 models/
-documents/
 tests/
-api/
 scripts/
+node_modules
+ui/node_modules
+ui/dist
