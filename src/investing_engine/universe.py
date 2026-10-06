@@ -43,27 +43,45 @@ _INSTRUMENTS: tuple[Instrument, ...] = (
         '("Borsa Istanbul" OR "BIST 100" OR "BIST100")',
         evds_series="TP.MK.F.BILESIK.TUM",
     ),
+    # Equities: BIST 30 constituents for 1 Oct - 31 Dec 2026, plus Arçelik.
+    Instrument("AEFES", "Anadolu Efes", InstrumentKind.EQUITY, '"Anadolu Efes"'),
     Instrument("AKBNK", "Akbank", InstrumentKind.EQUITY, '"Akbank"'),
     Instrument("ARCLK", "Arçelik", InstrumentKind.EQUITY, '("Arcelik" OR "Arçelik")'),
     Instrument("ASELS", "Aselsan", InstrumentKind.EQUITY, '"Aselsan"'),
+    Instrument("ASTOR", "Astor Enerji", InstrumentKind.EQUITY, '"Astor Enerji"'),
     Instrument(
         "BIMAS", "BİM Birleşik Mağazalar", InstrumentKind.EQUITY, '"BIM Birlesik Magazalar"'
     ),
+    Instrument("EKGYO", "Emlak Konut GYO", InstrumentKind.EQUITY, '"Emlak Konut"'),
+    Instrument("ENKAI", "Enka İnşaat", InstrumentKind.EQUITY, '("Enka Insaat" OR "Enka İnşaat")'),
     Instrument(
         "EREGL", "Ereğli Demir Çelik", InstrumentKind.EQUITY, '("Erdemir" OR "Eregli Demir")'
     ),
     Instrument("FROTO", "Ford Otosan", InstrumentKind.EQUITY, '"Ford Otosan"'),
     Instrument("GARAN", "Garanti BBVA", InstrumentKind.EQUITY, '"Garanti BBVA"'),
+    Instrument("GUBRF", "Gübre Fabrikaları", InstrumentKind.EQUITY, '("Gubretas" OR "Gübretaş")'),
     Instrument("ISCTR", "Türkiye İş Bankası", InstrumentKind.EQUITY, '("Isbank" OR "Is Bankasi")'),
     Instrument("KCHOL", "Koç Holding", InstrumentKind.EQUITY, '("Koc Holding" OR "Koç Holding")'),
+    Instrument("KRDMD", "Kardemir", InstrumentKind.EQUITY, '"Kardemir"'),
+    Instrument("MGROS", "Migros Ticaret", InstrumentKind.EQUITY, '"Migros Ticaret"'),
+    Instrument("PETKM", "Petkim Petrokimya", InstrumentKind.EQUITY, '"Petkim"'),
     Instrument("PGSUS", "Pegasus Hava Taşımacılığı", InstrumentKind.EQUITY, '"Pegasus Airlines"'),
     Instrument("SAHOL", "Hacı Ömer Sabancı Holding", InstrumentKind.EQUITY, '"Sabanci Holding"'),
+    Instrument("SASA", "Sasa Polyester", InstrumentKind.EQUITY, '"Sasa Polyester"'),
     Instrument("SISE", "Türkiye Şişe ve Cam", InstrumentKind.EQUITY, '("Sisecam" OR "Şişecam")'),
+    Instrument("TAVHL", "TAV Havalimanları", InstrumentKind.EQUITY, '"TAV Airports"'),
     Instrument("TCELL", "Turkcell", InstrumentKind.EQUITY, '"Turkcell"'),
     Instrument("THYAO", "Türk Hava Yolları", InstrumentKind.EQUITY, '"Turkish Airlines"'),
     Instrument("TOASO", "Tofaş Türk Otomobil", InstrumentKind.EQUITY, '("Tofas" OR "Tofaş")'),
+    Instrument(
+        "TRALT", "Türk Altın İşletmeleri", InstrumentKind.EQUITY, '("Turk Altin" OR "Koza Altin")'
+    ),
+    Instrument(
+        "TRMET", "TR Anadolu Metal Madencilik", InstrumentKind.EQUITY, '"Anadolu Metal Madencilik"'
+    ),
     Instrument("TTKOM", "Türk Telekom", InstrumentKind.EQUITY, '"Turk Telekom"'),
     Instrument("TUPRS", "Tüpraş", InstrumentKind.EQUITY, '("Tupras" OR "Tüpraş")'),
+    Instrument("VAKBN", "VakıfBank", InstrumentKind.EQUITY, '("VakifBank" OR "Vakıfbank")'),
     Instrument("YKBNK", "Yapı Kredi", InstrumentKind.EQUITY, '"Yapi Kredi"'),
 )
 

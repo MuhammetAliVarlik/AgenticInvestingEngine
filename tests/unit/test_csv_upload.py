@@ -1,3 +1,5 @@
+import io
+
 import pytest
 
 from investing_engine.providers.base import ProviderError
@@ -68,3 +70,40 @@ def test_rejects_binary_content(raw):
 def test_rejects_too_little_history():
     with pytest.raises(ProviderError, match="Not enough price history"):
         parse_ohlcv_csv(_international_csv(10), symbol="THYAO", **LIMITS)
+
+
+def _isyatirim_xlsx(rows: int = 60) -> bytes:
+    from openpyxl import Workbook
+
+    frame = synthetic_prices(rows).round(2)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Tarih", "Kapanış(TL)", "Min(TL)", "Max(TL)", "AOF(TL)", "Hacim(TL)"])
+    for ts, row in frame.iterrows():
+        sheet.append(
+            [
+                ts.strftime("%d-%m-%Y"),
+                row["Close"],
+                row["Low"],
+                row["High"],
+                row["Close"],
+                int(row["Volume"]),
+            ]
+        )
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def test_parses_isyatirim_excel_export():
+    expected = synthetic_prices(60).round(2)
+    frame = parse_ohlcv_csv(_isyatirim_xlsx(), symbol="THYAO", **LIMITS)
+
+    assert list(frame.columns) == ["High", "Low", "Close", "Volume"]
+    assert frame["Close"].iloc[0] == pytest.approx(expected["Close"].iloc[0])
+    assert frame.index[0] == expected.index[0].normalize()  # day-first dd-mm-yyyy text
+
+
+def test_rejects_malformed_excel():
+    with pytest.raises(ProviderError, match="Excel"):
+        parse_ohlcv_csv(b"PK\x03\x04not a workbook", symbol="THYAO", **LIMITS)
