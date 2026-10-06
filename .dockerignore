@@ -12,8 +12,6 @@
 .claude/
 data/
 models/
-documents/
 tests/
-api/
 ui/
 scripts/
