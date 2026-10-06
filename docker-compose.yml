@@ -1,17 +1,61 @@
+# Local stack.
+#   Hosted LLM (Groq):  docker compose up --build
+#   Local LLM (Ollama): docker compose --profile ollama up --build
+#                       (set LLM_PROVIDER=ollama and OLLAMA_BASE_URL=http://ollama:11434 in .env)
+#
+# Every published port is bound to 127.0.0.1. Ollama publishes no port at all:
+# only the API can reach it, over the private "llm" network.
+
 services:
-  # Ollama Service
-  ollama:
-    container_name: ollama_server
-    ports:
-      - "11434:11434"
-    build: ollama
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DB_PATH: /data/predictions.db
+      MODEL_DIR: /data/models
     volumes:
-      - ollama-vol:/ollama
-    networks:
-      - ollama-net
-    entrypoint: ["/usr/bin/bash", "/pull-llama3.sh"]
-    pull_policy: always
-    tty: true
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8080:8000"
+    networks: [backend, llm]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+  ui:
+    build: ./ui
+    environment:
+      API_BASE_URL: http://api:8000
+      # Local mode needs no sign-in. To try anonymous access codes locally:
+      #   AUTH_PROVIDER=accesscode ACCESS_CODE_SECRET=<32+ chars> docker compose up --build
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-none}
+      ACCESS_CODE_SECRET: ${ACCESS_CODE_SECRET:-}
+      GLOBAL_DAILY_ANALYSES: ${GLOBAL_DAILY_ANALYSES:-50}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8501:8501"
+    networks: [backend]
+    depends_on: [api]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    restart: unless-stopped
+
+  ollama:
+    profiles: [ollama]
+    build: ./ollama
+    entrypoint: ["/bin/bash", "/pull-llama3.sh"]
+    volumes:
+      - ollama:/ollama
+    environment:
+      OLLAMA_MODELS: /ollama
+    networks: [llm]
     restart: unless-stopped
     deploy:
       resources:
@@ -20,49 +64,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - OLLAMA_MODELS=/ollama
-    runtime: nvidia
-  # Backend part
-  api:
-    container_name: fastapi_server
-    ports:
-      - "8080:8000"
-    build: ./api
-    volumes:
-      - ./api:/app
-      - orchestrator_venv_vol:/app/venv
-      - ./data:/app/data
-    env_file:
-      - ./api/.env
-    networks:
-      - backend-net
-      - ollama-net
-  # Streamlit UI
-  ui:
-    container_name: streamlit_ui
-    ports:
-      - "8501:8501"
-    build: ./ui
-    environment:
-      - API_BASE_URL=http://fastapi_server:8000
-    networks:
-      - backend-net
-    depends_on:
-      - api
 
 networks:
-  ollama-net:
-    driver: bridge
-  backend-net:
-    driver: bridge
-
+  backend:
+  llm:
 
 volumes:
-  ollama-vol:
-    driver: local
-  orchestrator_venv_vol:
-    driver: local
-
+  ollama:

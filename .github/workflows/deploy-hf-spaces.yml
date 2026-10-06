@@ -1,0 +1,45 @@
+name: Deploy to Hugging Face Spaces
+
+# Fallback host: free CPU Space, no credit card. Manual only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: hf-spaces
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble Space repository
+        run: |
+          mkdir -p space/deploy/hf-spaces
+          cp -r src ui pyproject.toml LICENSE space/
+          cp deploy/hf-spaces/Dockerfile space/Dockerfile
+          cp deploy/hf-spaces/start.sh space/deploy/hf-spaces/start.sh
+          # The Space README carries the Spaces configuration header (it also
+          # serves as the package's long description inside the image).
+          cp deploy/hf-spaces/README.space.md space/README.md
+          rm -rf space/ui/node_modules space/ui/dist
+
+      - name: Upload
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_ID: ${{ vars.HF_SPACE_ID }}
+        run: |
+          pip install "huggingface_hub>=0.25"
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          HfApi(token=os.environ["HF_TOKEN"]).upload_folder(
+              repo_id=os.environ["SPACE_ID"],
+              repo_type="space",
+              folder_path="space",
+              commit_message=f"Deploy {os.environ['GITHUB_SHA'][:12]}",
+              delete_patterns=["*"],
+          )
+          EOF

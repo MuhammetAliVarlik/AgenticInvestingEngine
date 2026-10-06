@@ -160,5 +160,19 @@ docker-compose.env
 *.db
 *.db-journal
 
-# Regenerable trained RSI models (see api/tools/stockPriceAnaliserTool.py caching)
-api/models/*.joblib
+# Regenerable trained RSI models
+*.joblib
+
+# Personal interview notes (not for publication)
+MULAKAT_NOTLARI.md
+
+# Web UI build
+ui/node_modules/
+ui/dist/
+ui/*.tsbuildinfo
+
+# Secrets and access codes: never commit them
+*.db
+access-codes*.txt
+*.secret
+.env.local

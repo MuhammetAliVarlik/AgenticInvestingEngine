@@ -1,0 +1,26 @@
+# Secret scanning rules: the default gitleaks rules plus the secrets of this
+# project. CI (security workflow) and the pre-commit hook both use this file.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "investing-engine-access-code"
+description = "Investing Engine access code (gives access to a deployment)"
+regex = '''IE-[A-Za-z0-9_-]{40,}'''
+tags = ["access-code"]
+
+[[rules]]
+id = "investing-engine-secret-value"
+description = "A secret of this project written into a file"
+regex = '''(?i)(ACCESS_CODE_SECRET|INTERNAL_API_TOKEN|TELEMETRY_SALT|SMTP_PASSWORD|OIDC_COOKIE_SECRET|OIDC_CLIENT_SECRET)[ \t]*[=:][ \t]*["']?([A-Za-z0-9_\-+/]{20,})'''
+secretGroup = 2
+tags = ["secret"]
+
+[allowlist]
+description = "Placeholders and code identifiers, not secrets"
+regexes = [
+  '''change-me''',
+  # Identifiers such as price_above_ema34 or GLOBAL_DAILY_ANALYSES, not values
+  '''(?i)^[a-z]+(_[a-z0-9]+)+$''',
+]

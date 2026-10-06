@@ -1,0 +1,109 @@
+name: Deploy to Azure
+
+# Manual only: deployments are deliberate. Azure access uses OpenID Connect
+# federation, so no long-lived Azure credentials are stored in GitHub.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.tags.outputs.api }}
+      ui: ${{ steps.tags.outputs.ui }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: tags
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "api=${REGISTRY}/${owner}/investing-engine-api:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "ui=${REGISTRY}/${owner}/investing-engine-ui:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.api }}
+          provenance: true
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ui
+          push: true
+          tags: ${{ steps.tags.outputs.ui }}
+          provenance: true
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep template
+        id: deploy
+        uses: azure/arm-deploy@v2
+        with:
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: deploy/azure/main.bicep
+          failOnStdErr: false
+          parameters: >-
+            apiImage=${{ needs.images.outputs.api }}
+            uiImage=${{ needs.images.outputs.ui }}
+            signInMode=${{ vars.SIGN_IN_MODE || 'accesscode' }}
+            allowedUsers=${{ vars.ALLOWED_USERS }}
+            githubClientId=${{ vars.GH_OAUTH_CLIENT_ID }}
+            githubClientSecret=${{ secrets.GH_OAUTH_CLIENT_SECRET }}
+            accessCodeSecret=${{ secrets.ACCESS_CODE_SECRET }}
+            globalDailyAnalyses=${{ vars.GLOBAL_DAILY_ANALYSES || 50 }}
+            alertEmailTo=${{ vars.ALERT_EMAIL_TO }}
+            smtpHost=${{ vars.SMTP_HOST }}
+            smtpUser=${{ vars.SMTP_USER }}
+            smtpPassword=${{ secrets.SMTP_PASSWORD }}
+            internalApiToken=${{ secrets.INTERNAL_API_TOKEN }}
+            groqApiKey=${{ secrets.GROQ_API_KEY }}
+            evdsApiKey=${{ secrets.EVDS_API_KEY }}
+            telemetrySalt=${{ secrets.TELEMETRY_SALT }}
+            langfusePublicKey=${{ vars.LANGFUSE_PUBLIC_KEY }}
+            langfuseSecretKey=${{ secrets.LANGFUSE_SECRET_KEY }}
+
+      - name: Smoke test
+        run: |
+          url="${{ steps.deploy.outputs.uiUrl }}"
+          echo "UI: $url"
+          if [ "${{ vars.SIGN_IN_MODE || 'accesscode' }}" = "accesscode" ]; then
+            # Without a code the API relay must refuse and ask for an access code.
+            body=$(curl -s "$url/api/me")
+            echo "$body" | grep -q '"method":"code"'
+            test "$(curl -s -o /dev/null -w '%{http_code}' "$url/api/instruments")" = "401"
+          else
+            # Unauthenticated requests must be redirected to the sign-in page.
+            status=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            test "$status" = "302" -o "$status" = "401"
+          fi

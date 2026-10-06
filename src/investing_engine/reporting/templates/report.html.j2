@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Investing Engine report – {{ symbols | join(", ") }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm;
+    @bottom-left { content: "Investing Engine · {{ generated_at }} UTC · ref {{ reference }}"; font-family: "DejaVu Sans", sans-serif; font-size: 7pt; color: #7b8794; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: "DejaVu Sans", sans-serif; font-size: 7pt; color: #7b8794; }
+  }
+  body { font-family: "DejaVu Sans", sans-serif; font-size: 9pt; color: #1f2933; line-height: 1.45; }
+  h1 { font-size: 20pt; margin: 0 0 2mm; letter-spacing: -0.3pt; }
+  h2 { font-size: 13pt; margin: 6mm 0 2mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #2563eb; }
+  h3 { font-size: 10.5pt; margin: 4mm 0 1.5mm; }
+  h4 { font-size: 9.5pt; margin: 3mm 0 1mm; }
+  p { margin: 0 0 2mm; }
+  ul { margin: 0 0 2mm 4mm; padding: 0; }
+  .subtitle { color: #7b8794; margin-bottom: 6mm; }
+  .tiles { display: flex; gap: 3mm; margin: 3mm 0 4mm; }
+  .tile { flex: 1; border: 0.75pt solid #e4e7eb; border-radius: 2mm; padding: 2.5mm 3mm; }
+  .tile .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.4pt; color: #7b8794; }
+  .tile .value { font-size: 13pt; font-weight: bold; margin-top: 0.5mm; }
+  .bullish { color: #15803d; } .bearish { color: #b91c1c; } .neutral { color: #a16207; }
+  .chart { margin: 2mm 0; }
+  .chart svg { width: 100%; height: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 8pt; page-break-inside: avoid; }
+  .chart { page-break-inside: avoid; }
+  th, td { text-align: left; padding: 1.2mm 2mm; border-bottom: 0.5pt solid #e4e7eb; }
+  th { color: #7b8794; font-weight: normal; text-transform: uppercase; font-size: 6.5pt; letter-spacing: 0.4pt; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .report { margin-top: 2mm; }
+  .note { background: #f5f7fa; border-left: 2pt solid #2563eb; padding: 2mm 3mm; margin: 3mm 0; font-size: 8pt; }
+  .warn { border-left-color: #b91c1c; }
+  .sources { font-size: 7.5pt; color: #52606d; }
+  .section { page-break-before: always; }
+</style>
+</head>
+<body>
+  <h1>Market research report</h1>
+  <div class="subtitle">{{ symbols | join(" · ") }} &nbsp;|&nbsp; generated {{ generated_at }} UTC</div>
+
+  <div class="tiles">
+    <div class="tile"><div class="label">Instruments</div><div class="value">{{ symbols | length }}</div></div>
+    <div class="tile"><div class="label">Grounded figures</div><div class="value">{{ grounding }}</div></div>
+    <div class="tile"><div class="label">Injection flags</div><div class="value">{{ injection_flags | length }}</div></div>
+    <div class="tile"><div class="label">LLM tokens</div><div class="value">{{ tokens }}</div></div>
+  </div>
+
+  {% if injection_flags %}
+  <div class="note warn">Possible prompt-injection content ({{ injection_flags | join(", ") }}) was detected in third-party material and removed before analysis.</div>
+  {% endif %}
+  {% if ungrounded %}
+  <div class="note warn">Figures in the narrative that do not match any tool output: {{ ungrounded | join(", ") }}.</div>
+  {% endif %}
+
+  <h2>Summary</h2>
+  <div class="report">{{ report_html }}</div>
+
+  {% for item in instruments %}
+  <div class="section">
+    <h2>{{ item.symbol }} — {{ item.name }}</h2>
+    {% if item.technical %}
+    <div class="tiles">
+      <div class="tile"><div class="label">Signal</div><div class="value {{ item.technical.signal }}">{{ item.technical.signal | title }}</div></div>
+      <div class="tile"><div class="label">Last close</div><div class="value">{{ "{:,.2f}".format(item.technical.price) }}</div></div>
+      <div class="tile"><div class="label">RSI → forecast</div><div class="value">{{ "%.1f" | format(item.technical.rsi) }} → {{ "%.1f" | format(item.technical.predicted_next_rsi) }}</div></div>
+      <div class="tile"><div class="label">News risk</div><div class="value">{% if item.risk is not none %}{{ "%g" | format(item.risk) }}/10{% else %}–{% endif %}</div></div>
+    </div>
+    {% endif %}
+
+    {% for svg in item.charts %}<div class="chart">{{ svg }}</div>{% endfor %}
+
+    {% if item.technical %}
+    <h3>Indicators</h3>
+    <table>
+      <tr><th>Indicator</th><th style="text-align:right">Value</th><th>Indicator</th><th style="text-align:right">Value</th></tr>
+      {% for left, right in item.indicator_rows %}
+      <tr><td>{{ left[0] }}</td><td class="num">{{ left[1] }}</td><td>{{ right[0] }}</td><td class="num">{{ right[1] }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="sources">Price source: {{ item.technical.source }} · data as of {{ item.technical.as_of }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <h2>Sources &amp; disclaimer</h2>
+  <ul class="sources">
+    {% for source in sources %}<li>{{ source.attribution }}</li>{% endfor %}
+  </ul>
+  <p class="sources">This report was generated by an automated multi-agent system for research and
+  educational purposes. It is not investment advice and must not be relied on for investment decisions.</p>
+</body>
+</html>
