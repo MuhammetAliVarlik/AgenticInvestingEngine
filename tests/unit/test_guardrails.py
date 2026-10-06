@@ -5,7 +5,7 @@ import pytest
 
 from investing_engine.guardrails.injection import (
     QUARANTINE_MARKER,
-    guard_untrusted,
+    new_boundary,
     quarantine,
     scan,
     spotlight,
@@ -53,10 +53,8 @@ def test_spotlight_neutralises_forged_boundaries():
     assert "[tag removed]" in wrapped
 
 
-def test_guard_uses_a_fresh_boundary_each_time():
-    first, _ = guard_untrusted("text", source="a")
-    second, _ = guard_untrusted("text", source="a")
-    assert first != second
+def test_each_boundary_is_fresh():
+    assert new_boundary() != new_boundary()
 
 
 FACTS = collect_facts(

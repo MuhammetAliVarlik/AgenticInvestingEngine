@@ -133,9 +133,3 @@ def spotlight(text: str, *, source: str, boundary: str) -> str:
         f"{safe}\n"
         f'</{_BOUNDARY_TAG} id="{boundary}">'
     )
-
-
-def guard_untrusted(text: str, *, source: str) -> tuple[str, ScanResult]:
-    """Quarantine then spotlight third-party text. Returns (safe_text, scan)."""
-    cleaned, result = quarantine(text)
-    return spotlight(cleaned, source=source, boundary=new_boundary()), result
