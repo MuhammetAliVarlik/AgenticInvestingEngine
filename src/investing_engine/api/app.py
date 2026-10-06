@@ -8,6 +8,7 @@ authentication layer overrides in deployed builds.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import secrets
@@ -150,7 +151,14 @@ def _section_for(report: str, symbol: str) -> str:
     return report[start : end if end != -1 else None].strip()
 
 
-def _persist(market: MarketData, instruments: Sequence[Instrument], result: AnalysisResult) -> None:
+def _persist(
+    market: MarketData,
+    instruments: Sequence[Instrument],
+    result: AnalysisResult,
+    *,
+    owner: str | None,
+) -> None:
+    """Record the analysis: shared when ``owner`` is None, else private to the owner."""
     for instrument in instruments:
         technical = result.technical.get(instrument.symbol, {})
         market.history.save(
@@ -162,6 +170,7 @@ def _persist(market: MarketData, instruments: Sequence[Instrument], result: Anal
             price=technical.get("price"),
             divergence=technical.get("momentum_divergence"),
             summary=_section_for(result.report, instrument.symbol),
+            owner=owner,
         )
 
 
@@ -251,7 +260,8 @@ def create_app(
         return JSONResponse(
             status_code=429,
             content={"detail": str(exc)},
-            headers={"Retry-After": str(exc.retry_after)},
+            # Lets the gateway tell a provider rate limit from a user budget.
+            headers={"Retry-After": str(exc.retry_after), "X-Limit-Reason": exc.reason},
         )
 
     def _prepare(
@@ -311,7 +321,15 @@ def create_app(
                     state.breaker.trip()
                 response = _response(state.market, result)
                 if result.report and not result.errors:
-                    await run_in_threadpool(_persist, state.market, instruments, result)
+                    # Results built on a caller's private uploads stay private: they
+                    # are not cached and are recorded in that caller's history only.
+                    owner = caller if body.personalised else None
+                    await run_in_threadpool(
+                        functools.partial(_persist, owner=owner),
+                        state.market,
+                        instruments,
+                        result,
+                    )
                     if not body.personalised:
                         state.cache[cache_key] = response
                     response = response.model_copy(
@@ -452,7 +470,7 @@ def create_app(
                         technical=response.technical.get(symbol),
                         risk=response.risk.get(symbol),
                         series=series,
-                        history=market.history.timeline(symbol, limit=60),
+                        history=market.history.timeline(symbol, viewer=caller, limit=60),
                     )
                 )
             return render_pdf(
@@ -497,6 +515,8 @@ def create_app(
             instrument = resolve(symbol)
         except UnknownSymbolError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        return market.history.timeline(instrument.symbol, limit=max(1, min(limit, 500)))
+        return market.history.timeline(
+            instrument.symbol, viewer=caller, limit=max(1, min(limit, 500))
+        )
 
     return app

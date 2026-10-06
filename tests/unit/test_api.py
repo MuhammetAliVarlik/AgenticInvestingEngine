@@ -98,6 +98,11 @@ def test_upload_then_analyse_equity(client, models):
         "/analyses", json={"symbols": ["THYAO"], "datasets": {"THYAO": dataset_id}}
     ).json()
     assert body["technical"]["THYAO"]["source"] == "User-supplied file"
+    # Output derived from a private upload is recorded for its owner only.
+    rows = client.get("/history/THYAO").json()
+    assert len(rows) == 1
+    assert rows[0]["private"] is True
+    assert "owner" not in rows[0]
 
 
 def test_upload_rejects_bad_files(client):

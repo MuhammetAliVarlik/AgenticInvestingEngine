@@ -191,7 +191,7 @@ def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
             symbol: Instrument symbol.
             limit: Number of past analyses (1-50).
         """
-        return market.recent_history(symbol, limit=limit)
+        return market.recent_history(symbol, viewer=current_principal(), limit=limit)
 
     # --- Resources ---------------------------------------------------------------
 
@@ -215,7 +215,7 @@ def build_server(market: MarketData, **fastmcp_options: Any) -> FastMCP:
             instrument = resolve(symbol)
         except UnknownSymbolError as exc:
             raise ValueError(str(exc)) from exc
-        return market.history.timeline(instrument.symbol)
+        return market.history.timeline(instrument.symbol, viewer=current_principal())
 
     # --- Prompts -----------------------------------------------------------------
 

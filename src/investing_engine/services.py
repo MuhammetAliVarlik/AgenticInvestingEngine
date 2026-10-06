@@ -134,7 +134,7 @@ class MarketData:
                 model=settings.prompt_guard_model,
                 timeout=settings.http_timeout_seconds,
             )
-        history = HistoryStore(settings.db_path)
+        history = HistoryStore(settings.db_path, salt=settings.telemetry_salt.get_secret_value())
         history.init()
         return cls(
             settings,
@@ -357,8 +357,10 @@ class MarketData:
 
     # --- History -------------------------------------------------------------------
 
-    def recent_history(self, symbol: str, *, limit: int = 5) -> list[dict[str, Any]]:
-        return self.history.recent(resolve(symbol).symbol, limit=max(1, min(limit, 50)))
+    def recent_history(self, symbol: str, *, viewer: str, limit: int = 5) -> list[dict[str, Any]]:
+        return self.history.recent(
+            resolve(symbol).symbol, viewer=viewer, limit=max(1, min(limit, 50))
+        )
 
     def close(self) -> None:
         if self.evds is not None:
