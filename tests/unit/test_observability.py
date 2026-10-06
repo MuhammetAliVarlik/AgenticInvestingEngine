@@ -204,3 +204,13 @@ def test_rate_limited_provider_trips_the_breaker(settings, market):
         blocked = client.post("/analyses", json={"symbols": ["XU100"]})
     assert blocked.status_code == 429
     assert "rate-limited" in blocked.json()["detail"]
+
+
+def test_content_free_tracing_keeps_structure_and_numbers():
+    from investing_engine.observability.tracing import omit_content
+
+    payload = {"messages": ["Tesla CEO said ...", {"tokens": 42}], "score": 0.9}
+    assert omit_content(payload) == {
+        "messages": ["[content not traced]", {"tokens": 42}],
+        "score": 0.9,
+    }

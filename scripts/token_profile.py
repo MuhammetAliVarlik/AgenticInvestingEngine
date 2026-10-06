@@ -9,7 +9,7 @@ Usage:
     python scripts/token_profile.py --runs 5 --symbol XU100 --rpd 1000 --tpm 12000 --rpm 30
 
 Defaults for --rpd/--tpm/--rpm match Groq's free tier for
-llama-3.3-70b-versatile at the time of writing; check
+openai/gpt-oss-120b at the time of writing; check
 https://console.groq.com/settings/limits for your organisation's values.
 """
 

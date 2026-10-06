@@ -53,10 +53,17 @@ _SPECIALIST_PROMPTS = {
     "macro_analyst": MACRO_ANALYST_PROMPT,
     "disclosure_analyst": DISCLOSURE_ANALYST_PROMPT,
 }
+# One block per symbol: "News Risk: <SYMBOL>" followed (before the next block)
+# by "Risk Score: <n>/10". Models often add Markdown (**bold**, headings) or
+# small variations ("Risk score (1-10): 4", "4 out of 10"); markup is removed
+# before matching and the score must be within 0-10.
 _RISK_BLOCK = re.compile(
-    r"News Risk:\s*(?P<symbol>[A-Z0-9.]+)\s*=*\s*Risk Score:\s*(?P<score>\d+(?:\.\d+)?)\s*/\s*10",
-    re.IGNORECASE,
+    r"News\s+Risk\s*[:\-\u2013]\s*(?P<symbol>[A-Z0-9.]{2,10})\b"
+    r"(?:(?!News\s+Risk).){0,400}?"
+    r"Risk\s+Score\s*(?:\([^)]{0,20}\))?\s*[:=]\s*(?P<score>\d{1,2}(?:[.,]\d+)?)",
+    re.IGNORECASE | re.DOTALL,
 )
+_MARKUP = re.compile(r"[*_`#>]+")
 
 
 def _select(tools: Mapping[str, BaseTool], names: Sequence[str]) -> list[BaseTool]:
@@ -136,7 +143,19 @@ def tool_results(messages: Sequence[BaseMessage], tool_name: str) -> list[dict[s
 
 
 def risk_scores(text: str) -> dict[str, float]:
-    return {m["symbol"].upper(): float(m["score"]) for m in _RISK_BLOCK.finditer(text)}
+    """Risk score per symbol from the news analyst's answer (0-10, else ignored)."""
+    scores: dict[str, float] = {}
+    for match in _RISK_BLOCK.finditer(_MARKUP.sub("", text)):
+        score = float(match["score"].replace(",", "."))
+        if 0 <= score <= 10:
+            scores[match["symbol"].upper().removesuffix(".IS")] = score
+    if text and not scores:
+        # Content is not logged (it can quote third-party headlines); length is enough
+        # to tell "no answer" from "answer in an unexpected format".
+        logger.warning(
+            "News analyst answered without a readable risk score", extra={"chars": len(text)}
+        )
+    return scores
 
 
 @dataclass

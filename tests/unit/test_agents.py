@@ -66,6 +66,21 @@ async def test_agents_discover_tools_over_mcp_with_least_privilege(server):
     assert set(SPECIALISTS) <= set(graph.nodes)
 
 
+async def test_empty_tool_results_still_carry_text_content(server):
+    # Providers such as Groq reject tool messages with no content blocks.
+    async with engine_tools(server, principal="alice") as tools:
+        message = await tools["prediction_history"].ainvoke(
+            {
+                "type": "tool_call",
+                "id": "1",
+                "name": "prediction_history",
+                "args": {"symbol": "XU100"},
+            }
+        )
+    assert message.content
+    assert message.text == "[]"
+
+
 async def test_full_analysis_routes_through_every_specialist(server):
     model = ScriptedChatModel(script=full_script("XU100", risk=3))
     async with engine_tools(server, principal="alice") as tools:
@@ -158,3 +173,28 @@ def test_risk_scores_are_parsed_per_symbol():
         + NEWS_BLOCK.format(symbol="TUPRS", score=8.5)
     )
     assert risk_scores(text) == {"THYAO": 2.0, "TUPRS": 8.5}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "**=== News Risk: XU100 ===**\n**Risk Score:** 4/10\n**Reasoning:** calm week.",
+        "### News Risk: XU100\n- Risk score (1-10): 4\n- Reasoning: calm week.",
+        "News Risk – XU100\nRisk Score: 4 out of 10",
+        "=== News Risk: XU100 ===\nRisk Score: 4,0/10",
+    ],
+)
+def test_risk_scores_tolerate_markdown_and_variants(text):
+    assert risk_scores(text) == {"XU100": 4.0}
+
+
+def test_risk_score_of_one_symbol_never_leaks_into_another():
+    text = (
+        "=== News Risk: THYAO ===\nReasoning: no score given.\n"
+        "=== News Risk: TUPRS ===\nRisk Score: 7/10"
+    )
+    assert risk_scores(text) == {"TUPRS": 7.0}
+
+
+def test_out_of_range_scores_are_ignored():
+    assert risk_scores("=== News Risk: XU100 ===\nRisk Score: 42/10") == {}

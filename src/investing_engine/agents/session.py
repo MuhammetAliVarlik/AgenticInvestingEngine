@@ -15,6 +15,7 @@ model therefore cannot mistype, invent or swap another user's dataset id.
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
@@ -27,6 +28,7 @@ from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
 from mcp.shared.memory import create_connected_server_and_client_session
+from mcp.types import CallToolResult, TextContent
 
 from investing_engine.universe import normalize_symbol
 
@@ -63,6 +65,25 @@ class UploadInjector:
             if granted:
                 args[argument] = granted
         return await handler(request.override(args=args))
+
+
+async def fill_empty_content(
+    request: MCPToolCallRequest, handler: ToolHandler
+) -> MCPToolCallResult:
+    """Interceptor that guarantees every tool result carries at least one text block.
+
+    FastMCP serialises an empty list return value as zero content blocks, which
+    becomes an empty tool message; providers such as Groq reject those. The
+    structured payload is rendered as JSON text instead.
+    """
+    result = await handler(request)
+    if isinstance(result, CallToolResult) and not result.content:
+        payload = result.structuredContent
+        if isinstance(payload, dict) and set(payload) == {"result"}:
+            payload = payload["result"]
+        text = json.dumps(payload) if payload is not None else "No content."
+        result = result.model_copy(update={"content": [TextContent(type="text", text=text)]})
+    return result
 
 
 def _by_symbol(mapping: Mapping[str, str]) -> dict[str, str]:
@@ -107,7 +128,10 @@ async def engine_tools(
         async with create_connected_server_and_client_session(server) as session:
             tools = await load_mcp_tools(
                 session,
-                tool_interceptors=[UploadInjector(datasets or {}, documents or {})],
+                tool_interceptors=[
+                    UploadInjector(datasets or {}, documents or {}),
+                    fill_empty_content,
+                ],
                 server_name="investing-engine",
             )
             yield {

@@ -26,7 +26,7 @@ def build_chat_model(settings: Settings) -> BaseChatModel:
             api_key=settings.groq_api_key,
             temperature=settings.llm_temperature,
             max_tokens=settings.max_output_tokens,
-            max_retries=2,
+            max_retries=settings.llm_max_retries,
         )
 
     from langchain_ollama import ChatOllama

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # ---- Build: install the package into an isolated virtualenv ------------------
 FROM python:3.11-slim AS build
 
@@ -20,6 +18,8 @@ FROM python:3.11-slim AS runtime
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    XDG_CACHE_HOME=/tmp/.cache \
     DB_PATH=/data/predictions.db \
     MODEL_DIR=/data/models
 

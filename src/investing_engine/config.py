@@ -43,16 +43,20 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:latest"
     groq_api_key: SecretStr | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     max_output_tokens: int = Field(default=1024, ge=128, le=8192)
+    # Retries after a provider rate limit. The Groq client waits as long as the
+    # Retry-After header asks, so a short per-minute token limit (free tier)
+    # slows an analysis down instead of failing it.
+    llm_max_retries: int = Field(default=6, ge=0, le=10)
     max_graph_steps: int = Field(
         default=40, ge=10, le=200, description="LangGraph recursion limit per analysis."
     )
 
     # --- Data providers --------------------------------------------------------
     evds_api_key: SecretStr | None = None
-    evds_base_url: str = "https://evds3.tcmb.gov.tr/service/evds"
+    evds_base_url: str = "https://evds3.tcmb.gov.tr/igmevdsms-dis"
     gdelt_base_url: str = "https://api.gdeltproject.org/api/v2/doc/doc"
     # Yahoo Finance is personal-use only; it must stay disabled in any
     # deployed build. See DATA_SOURCES.md.
@@ -90,6 +94,10 @@ class Settings(BaseSettings):
     # Salt for hashing user identities in traces and usage counters. Set a
     # random value in every deployment.
     telemetry_salt: SecretStr = SecretStr("local-development-salt")
+    # Send prompt and tool text to the tracing backend. Turn off for public
+    # deployments: traces then keep structure, timings, token counts and scores
+    # but no content, so nothing a user typed or uploaded leaves the service.
+    trace_content: bool = True
 
     # --- Budgets -----------------------------------------------------------------------
     daily_analyses_per_user: int = Field(default=20, ge=1)

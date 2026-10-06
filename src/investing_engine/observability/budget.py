@@ -35,9 +35,10 @@ CREATE TABLE IF NOT EXISTS usage (
 
 
 class BudgetExceededError(RuntimeError):
-    def __init__(self, message: str, *, retry_after: int) -> None:
+    def __init__(self, message: str, *, retry_after: int, reason: str = "budget") -> None:
         super().__init__(message)
         self.retry_after = retry_after
+        self.reason = reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +130,7 @@ class CircuitBreaker:
             raise BudgetExceededError(
                 "The language model is rate-limited; please retry shortly",
                 retry_after=int(remaining) + 1,
+                reason="provider",
             )
 
     def trip(self) -> None:

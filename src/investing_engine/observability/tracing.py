@@ -39,6 +39,17 @@ def hash_principal(principal: str, salt: str) -> str:
     return hashlib.sha256(f"{salt}:{principal}".encode()).hexdigest()[:16]
 
 
+def omit_content(data: Any, **_: Any) -> Any:
+    """Replace every string in a traced payload; structure and numbers stay."""
+    if isinstance(data, str):
+        return "[content not traced]"
+    if isinstance(data, dict):
+        return {k: omit_content(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [omit_content(v) for v in data]
+    return data
+
+
 def mask(data: Any, **_: Any) -> Any:
     """Redact credentials and truncate long strings in traced payloads."""
     if isinstance(data, str):
@@ -75,7 +86,7 @@ class Tracer:
                 secret_key=settings.langfuse_secret_key.get_secret_value(),
                 base_url=settings.langfuse_base_url,
                 environment=settings.environment,
-                mask=mask,
+                mask=mask if settings.trace_content else omit_content,
             )
             self._public_key = settings.langfuse_public_key
 
