@@ -138,3 +138,10 @@ def test_identity_helpers():
     assert is_allowed("github:octocat", allowlist)
     assert not is_allowed("github:someone", allowlist)
     assert is_allowed("alice@example.com", allowlist)
+
+
+def test_access_code_entry_admits_only_code_identities():
+    allowlist = parse_allowlist("code:*")
+    assert is_allowed("code:0123456789abcdef", allowlist)
+    assert not is_allowed("github:octocat", allowlist)
+    assert not is_allowed("alice@example.com", allowlist)

@@ -10,7 +10,7 @@ misconfigured.
 Because the API authenticates with a header token rather than cookies, a
 third-party website cannot make a victim's browser send authenticated
 requests to it, so classic CSRF does not apply here. Browser-facing CSRF
-protection is provided by Streamlit's XSRF tokens on the UI.
+protection is provided by the web gateway (custom-header check, SameSite cookies).
 """
 
 from __future__ import annotations
@@ -59,13 +59,22 @@ def normalise_identity(raw: str) -> str:
     return identity
 
 
+# Allowlist entry that admits every anonymous access-code identity ("code:<id>").
+# The web gateway validates the codes; the API only accepts them from the gateway,
+# which must present the internal token.
+ANY_ACCESS_CODE = "code:*"
+
+
 def parse_allowlist(raw: str) -> frozenset[str]:
-    return frozenset(normalise_identity(x) for x in raw.split(",") if x.strip())
+    entries = [x.strip().lower() for x in raw.split(",") if x.strip()]
+    return frozenset(x if x == ANY_ACCESS_CODE else normalise_identity(x) for x in entries)
 
 
 def is_allowed(identity: str, allowlist: frozenset[str]) -> bool:
     """Match ``provider:name`` identities against both qualified and bare entries."""
     if identity in allowlist:
+        return True
+    if ANY_ACCESS_CODE in allowlist and identity.startswith("code:"):
         return True
     _, _, bare = identity.partition(":")
     return bool(bare) and bare in allowlist
