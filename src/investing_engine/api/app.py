@@ -47,7 +47,7 @@ from investing_engine.observability.logging import request_id_var
 from investing_engine.observability.tracing import Tracer
 from investing_engine.providers.base import ProviderError
 from investing_engine.reporting.pdf import InstrumentSection, render_pdf
-from investing_engine.services import MarketData
+from investing_engine.services import DOCUMENT_UPLOAD_KIND, PRICE_UPLOAD_KIND, MarketData
 from investing_engine.universe import (
     Instrument,
     UnknownSymbolError,
@@ -135,6 +135,30 @@ def _instruments(body: AnalysisRequest, settings: Settings) -> list[Instrument]:
         return resolve_many(",".join(body.symbols), limit=settings.max_symbols_per_request)
     except UnknownSymbolError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _require_uploads(market: MarketData, caller: str, body: AnalysisRequest) -> None:
+    """Refuse the request before any model call if an attached upload is gone.
+
+    Uploads live in memory for a limited time, so they also disappear when the
+    service restarts. Without this check the analysis would run and silently
+    miss the technical or disclosure data.
+    """
+    for kind, mapping, label in (
+        (PRICE_UPLOAD_KIND, body.datasets, "price file"),
+        (DOCUMENT_UPLOAD_KIND, body.documents, "document"),
+    ):
+        for symbol, upload_id in mapping.items():
+            try:
+                market.uploads.get(upload_id, owner=caller, kind=kind)
+            except UploadNotFoundError:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"The {label} for {symbol.upper()} has expired or the service "
+                        "was restarted. Upload it again."
+                    ),
+                ) from None
 
 
 def _upper_keys(mapping: dict[str, str]) -> set[str]:
@@ -270,6 +294,7 @@ def create_app(
         """Validate, look up the cache and enforce budgets before any work starts."""
         state = request.app.state
         instruments = _instruments(body, settings)
+        _require_uploads(state.market, caller, body)
         cache_key = ",".join(sorted(i.symbol for i in instruments))
         if not body.personalised and (cached := state.cache.get(cache_key)) is not None:
             return instruments, cache_key, cached

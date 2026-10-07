@@ -57,7 +57,7 @@ MCP clients can use the same tools.
 | **Guardrails** | The engine finds prompt injection in all third-party text. It marks untrusted text, compares each number in the report with tool data and adds a disclaimer. |
 | **Observability** | Langfuse traces record each agent step, each tool call and the token usage. JSON logs have a request ID. |
 | **Cost control** | Each user has a daily limit for analyses and tokens. A circuit breaker stops calls after a provider rate limit. |
-| **Reports** | You can download each analysis as a PDF. The PDF has charts, indicator tables, risk history, quality results and source attribution. |
+| **Reports** | The report is written for readers with no market knowledge: short sentences, each term explained once, and the meaning of each figure. You can download each analysis as a PDF with charts, indicator tables, risk history, quality results and source attribution. |
 | **Web application** | A React and TypeScript application shows each step of the process. A gateway signs the user in and keeps the API token on the server. |
 | **Access control** | Anonymous access codes (signed, time-limited, quota-bound, one device) or platform sign-in with an allowlist. An internal API with a token, rate limits, owner alerts by e-mail and a production configuration that stops if a setting is not safe. |
 | **Privacy by design** | The public mode collects no personal data: no accounts, no IP addresses in logs, no document uploads and no content in traces. |
@@ -450,7 +450,7 @@ sequenceDiagram
 
 ```json
 {
-  "report": "## XU100 - BIST 100 Index\n**Technical view:** neutral - ...",
+  "report": "## XU100 - BIST 100 Index\n**In short:** The index is calm this week ...",
   "technical": { "XU100": { "signal": "neutral", "ema34": 10512.4, "rsi": 54.2 } },
   "risk": { "XU100": 4.0 },
   "checks": { "passed": true, "grounding_score": 1.0, "checked_figures": 9, "ungrounded_figures": [] },
@@ -716,6 +716,8 @@ Refer to [`.env.example`](.env.example).
 | `LLM_PROVIDER` | `ollama` | `ollama` or `groq` |
 | `GROQ_API_KEY`, `GROQ_MODEL` | none, `openai/gpt-oss-120b` | Hosted model |
 | `LLM_MAX_RETRIES` | `6` | Retries after a rate limit of the model provider. The client waits as long as the provider asks. |
+| `MAX_OUTPUT_TOKENS` | `2048` | Maximum length of one model answer |
+| `LLM_REASONING_EFFORT` | `low` | Reasoning effort for models that support it (Groq gpt-oss) |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | `http://localhost:11434`, `llama3.1:latest` | Local model |
 | `EVDS_API_KEY` | none | Index prices and macro data |
 | `ENABLE_PROMPT_GUARD` | `false` | Model-based injection classifier on Groq |

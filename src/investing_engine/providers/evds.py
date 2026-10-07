@@ -101,6 +101,22 @@ class EvdsClient:
 
         return _items_to_frame(payload, codes)
 
+    def series_name(self, code: str) -> str:
+        """English name of a series from EVDS metadata (used to verify series codes)."""
+        try:
+            response = self._client.get(f"serieList/type=json&code={code}")
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"EVDS request failed: {type(exc).__name__}") from exc
+        if response.status_code != 200:
+            raise ProviderError(f"EVDS returned HTTP {response.status_code}")
+        try:
+            entries = response.json()
+        except ValueError as exc:
+            raise ProviderError("EVDS returned a non-JSON response") from exc
+        if not isinstance(entries, list) or not entries or not isinstance(entries[0], dict):
+            raise ProviderError(f"EVDS has no series {code}")
+        return str(entries[0].get("SERIE_NAME_ENG") or entries[0].get("SERIE_NAME") or "")
+
 
 def _items_to_frame(payload: Any, codes: list[str]) -> pd.DataFrame:
     items = payload.get("items") if isinstance(payload, dict) else None

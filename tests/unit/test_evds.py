@@ -24,7 +24,7 @@ def _index_items(rows: int) -> list[dict]:
     return [
         {
             "Tarih": (start + timedelta(days=i)).strftime("%d-%m-%Y"),
-            "TP_MK_F_BILESIK_TUM": None if i % 7 == 6 else f"{10000 + i * 3.5:.2f}",
+            "TP_MK_F_BILESIK": None if i % 7 == 6 else f"{10000 + i * 3.5:.2f}",
         }
         for i in range(rows)
     ]
@@ -109,3 +109,24 @@ def test_macro_snapshot_computes_changes():
     assert snapshot["TP.CPI"]["change_pct"] == 35.0
     assert snapshot["TP.CPI"]["change_window"] == "1y"
     assert snapshot["TP.MISSING"]["available"] is False
+
+
+@respx.mock
+def test_series_name_reads_evds_metadata():
+    respx.get(url__startswith=f"{BASE_URL}/serieList/").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"SERIE_CODE": "TP.MK.F.BILESIK", "SERIE_NAME_ENG": "BIST-100 (XU100)"}],
+        )
+    )
+    client = EvdsClient("key", base_url=BASE_URL, timeout=5)
+    assert "(XU100)" in client.series_name("TP.MK.F.BILESIK")
+
+
+@respx.mock
+def test_series_name_of_unknown_code_is_an_error():
+    respx.get(url__startswith=f"{BASE_URL}/serieList/").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    with pytest.raises(ProviderError, match="no series"):
+        EvdsClient("key", base_url=BASE_URL, timeout=5).series_name("TP.NOPE")

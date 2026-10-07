@@ -58,7 +58,9 @@ sequenceDiagram
 - **EVDS.** The client sends the API key in a request header, not in the URL.
   The client is typed, has timeouts and does not follow redirects. The script
   [`scripts/verify_evds_series.py`](scripts/verify_evds_series.py) makes sure
-  that each series code gives live data.
+  that each series code gives live data. For index series, it also makes sure
+  that the EVDS series name contains the symbol, for example "(XU100)". A
+  series can give data and still be the wrong series.
 - **GDELT.** The engine uses only headline metadata and the tone value of
   GDELT. It never gets the text of an article. The engine makes each query
   from a fixed instrument allowlist, never from user input. It sends a

@@ -41,6 +41,9 @@ services:
       - "127.0.0.1:8501:8501"
     networks: [backend]
     depends_on: [api]
+    # Access-code usage, device bindings and revocations survive restarts.
+    volumes:
+      - gateway:/var/lib/gateway
     read_only: true
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]
@@ -71,3 +74,4 @@ networks:
 
 volumes:
   ollama:
+  gateway:
