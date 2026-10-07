@@ -59,8 +59,18 @@ def _parse(token: str) -> tuple[float, int]:
     return float(clean), decimals
 
 
+# Thousands separated by a space, a no-break space or a thin space
+# ("12 374.26") are joined first, so they are checked as one figure.
+_SPACED_THOUSANDS = re.compile(r"(?<![\w.,])\d{1,3}(?:[ \u00a0\u202f\u2009]\d{3})+(?!\d)")
+
+
+def _join_spaced_thousands(text: str) -> str:
+    return _SPACED_THOUSANDS.sub(lambda m: re.sub(r"\s", "", m.group(0)), text)
+
+
 def numbers_in_text(text: str) -> list[float]:
-    return [_parse(m.group(0))[0] for m in _NUMBER.finditer(_DATE.sub(" ", text))]
+    joined = _join_spaced_thousands(_DATE.sub(" ", text))
+    return [_parse(m.group(0))[0] for m in _NUMBER.finditer(joined)]
 
 
 def collect_facts(values: Iterable[Any]) -> set[float]:
@@ -94,7 +104,8 @@ def check_report(
     """Validate ``report`` and return it (with disclaimer enforced) plus findings."""
     check = ReportCheck()
 
-    tokens = [m.group(0) for m in _NUMBER.finditer(_DATE.sub(" ", report))]
+    text = _join_spaced_thousands(_DATE.sub(" ", report))
+    tokens = [m.group(0) for m in _NUMBER.finditer(text)]
     figures = [(t, *_parse(t)) for t in tokens]
     # Plain integers that are also years or small counts are not "precise figures".
     figures = [f for f in figures if f[2] > 0 or not 1900 <= f[1] <= 2100]

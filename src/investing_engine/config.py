@@ -45,7 +45,12 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     groq_model: str = "openai/gpt-oss-120b"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
-    max_output_tokens: int = Field(default=1024, ge=128, le=8192)
+    # Reasoning models (gpt-oss) spend part of this budget on hidden reasoning,
+    # so 1024 cut reports off mid-sentence.
+    max_output_tokens: int = Field(default=2048, ge=128, le=8192)
+    # Reasoning effort for models that support it (Groq gpt-oss): "low" keeps
+    # answers complete within the budget and uses fewer tokens per minute.
+    llm_reasoning_effort: Literal["low", "medium", "high"] = "low"
     # Retries after a provider rate limit. The Groq client waits as long as the
     # Retry-After header asks, so a short per-minute token limit (free tier)
     # slows an analysis down instead of failing it.
