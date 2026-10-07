@@ -34,9 +34,26 @@ def main() -> int:
     series = {i.evds_series: f"{i.symbol} close" for i in UNIVERSE.values() if i.evds_series}
     series |= {s.code: s.label for s in DEFAULT_MACRO_SERIES}
 
+    failures = 0
+    # A series can return data and still be the wrong one (XU100 once pointed at
+    # the BIST All Shares index), so index series must name their symbol.
+    for instrument in UNIVERSE.values():
+        if not instrument.evds_series:
+            continue
+        try:
+            name = client.series_name(instrument.evds_series)
+        except ProviderError as exc:
+            print(f"FAIL  {instrument.evds_series:<22} name lookup: {exc}")
+            failures += 1
+            continue
+        if f"({instrument.symbol})" not in name:
+            print(f"FAIL  {instrument.evds_series:<22} is '{name}', not {instrument.symbol}")
+            failures += 1
+        else:
+            print(f"OK    {instrument.evds_series:<22} {name}")
+
     end = date.today()
     start = end - timedelta(days=400)
-    failures = 0
     for code, label in series.items():
         try:
             column = client.fetch_series([code], start=start, end=end)[code].dropna()

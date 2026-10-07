@@ -17,7 +17,7 @@ def test_normalize_symbol_accepts_common_spellings(raw):
 def test_resolve_returns_instrument_metadata():
     instrument = resolve("XU100")
     assert instrument.kind is InstrumentKind.INDEX
-    assert instrument.evds_series == "TP.MK.F.BILESIK.TUM"
+    assert instrument.evds_series == "TP.MK.F.BILESIK"
 
 
 @pytest.mark.parametrize(

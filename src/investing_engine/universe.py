@@ -41,7 +41,7 @@ _INSTRUMENTS: tuple[Instrument, ...] = (
         "BIST 100 Index",
         InstrumentKind.INDEX,
         '("Borsa Istanbul" OR "BIST 100" OR "BIST100")',
-        evds_series="TP.MK.F.BILESIK.TUM",
+        evds_series="TP.MK.F.BILESIK",  # BIST-100 (XU100) closing price
     ),
     # Equities: BIST 30 constituents for 1 Oct - 31 Dec 2026, plus Arçelik.
     Instrument("AEFES", "Anadolu Efes", InstrumentKind.EQUITY, '"Anadolu Efes"'),
