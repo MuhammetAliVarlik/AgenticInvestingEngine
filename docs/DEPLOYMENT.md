@@ -130,6 +130,10 @@ same value as in the gateway.
   az containerapp exec -g $RG -n invengine-ui --command "python -m gateway.codes list"
   ```
 
+> **Note:** On the local Docker system, the code store is in the `gateway`
+> volume. Usage counts, device bindings and revocations stay after a restart.
+> To delete them, run `docker compose down -v`.
+>
 > **Note:** On Azure and Spaces the code store is in a temporary file system.
 > If the container stops, the store goes back to empty: device bindings, usage
 > counts and revocations are lost. Signed codes stay valid until they expire.

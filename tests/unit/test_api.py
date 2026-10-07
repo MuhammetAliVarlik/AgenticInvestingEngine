@@ -140,3 +140,13 @@ def test_section_extraction():
     assert _section_for(report, "THYAO") == "## THYAO - THY\nbody one"
     assert _section_for(report, "TUPRS").startswith("## TUPRS")
     assert _section_for(report, "XU100") == report
+
+
+def test_expired_upload_is_refused_before_any_model_call(client, models):
+    # For example after a restart: the browser still sends the old dataset id.
+    response = client.post(
+        "/analyses/stream", json={"symbols": ["THYAO"], "datasets": {"THYAO": "gone"}}
+    )
+    assert response.status_code == 422
+    assert "Upload it again" in response.json()["detail"]
+    assert models == []  # no model was built or called

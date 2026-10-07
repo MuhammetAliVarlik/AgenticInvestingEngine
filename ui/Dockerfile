@@ -15,10 +15,12 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    STATIC_DIR=/app/dist
+    STATIC_DIR=/app/dist \
+    GATEWAY_DB_PATH=/var/lib/gateway/gateway.db
 
 RUN groupadd --system --gid 10001 app \
-    && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
+    && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /var/lib/gateway && chown app:app /var/lib/gateway
 
 WORKDIR /app
 COPY requirements.txt .
