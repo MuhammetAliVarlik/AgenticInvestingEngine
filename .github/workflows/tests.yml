@@ -27,7 +27,10 @@ jobs:
             libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core
 
       - name: Install
-        run: pip install -e ".[dev,observability]" -r ui/requirements.txt
+        run: |
+          # The runner image ships an older setuptools that pip-audit flags.
+          python -m pip install --upgrade pip setuptools
+          pip install -e ".[dev,observability]" -r ui/requirements.txt
 
       - name: Lint
         run: |
