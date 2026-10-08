@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   ActivityLogItem,
   AuthError,
@@ -51,23 +52,6 @@ const AGENT_STAGE: Record<string, PipelineStageId> = {
   disclosure_analyst: 'disclosures',
 };
 
-const AGENT_LABEL: Record<string, string> = {
-  supervisor: 'Supervisor',
-  technical_analyst: 'Technical analyst',
-  news_analyst: 'News analyst',
-  macro_analyst: 'Macro analyst',
-  disclosure_analyst: 'Disclosure analyst',
-};
-
-const TOOL_LABEL: Record<string, string> = {
-  technical_snapshot: 'price indicators',
-  news_headlines: 'news headlines',
-  macro_snapshot: 'macro indicators',
-  disclosure_document: 'the disclosure document',
-  prediction_history: 'previous analyses',
-  list_instruments: 'the instrument list',
-};
-
 const freshStages = (): PipelineStage[] => INITIAL_STAGES.map((s) => ({ ...s, toolsUsed: [] }));
 
 /** Start `id` and close whichever planning or specialist stage was running before it. */
@@ -86,6 +70,9 @@ function addTool(stages: PipelineStage[], id: PipelineStageId, tool: string): Pi
 }
 
 export default function App() {
+  const { t } = useTranslation();
+  const agentLabel = (agent: string) => t(`agents.${agent}`, { defaultValue: t('agents.supervisor') });
+  const toolLabel = (tool: string) => t(`tools.${tool}`, { defaultValue: tool });
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [authError, setAuthError] = useState<AuthError | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -138,7 +125,7 @@ export default function App() {
           method: err.method,
         });
       } else {
-        setLoadError(err instanceof Error ? err.message : 'The service is not available');
+        setLoadError(err instanceof Error ? err.message : t('errors.serviceUnavailable'));
       }
     } finally {
       setLoadingInitial(false);
@@ -186,7 +173,7 @@ export default function App() {
     } catch (err: unknown) {
       patchData(symbol, {
         datasetUploading: false,
-        datasetError: err instanceof Error ? err.message : 'Upload failed',
+        datasetError: err instanceof Error ? err.message : t('errors.uploadFailed'),
       });
     }
   };
@@ -199,7 +186,7 @@ export default function App() {
     } catch (err: unknown) {
       patchData(symbol, {
         documentUploading: false,
-        documentError: err instanceof Error ? err.message : 'Upload failed',
+        documentError: err instanceof Error ? err.message : t('errors.uploadFailed'),
       });
     }
   };
@@ -212,15 +199,15 @@ export default function App() {
   const codeQuotaUsed = currentUser?.code ? currentUser.code.used >= currentUser.code.quota : false;
 
   const getDisabledReason = (): string | undefined => {
-    if (selectedSymbols.length === 0) return 'Select at least one instrument in step 1';
+    if (selectedSymbols.length === 0) return t('run.reason.noSelection');
     const missing = selectedSymbols.filter((sym) => needsFile(sym) && !dataState[sym]?.dataset);
-    if (missing.length > 0) return `Upload a price file for ${missing.join(', ')} in step 2`;
+    if (missing.length > 0) return t('run.reason.missingFile', { symbols: missing.join(', ') });
     const uploading = selectedSymbols.some(
       (sym) => dataState[sym]?.datasetUploading || dataState[sym]?.documentUploading,
     );
-    if (uploading) return 'Wait until the uploads are complete';
-    if (codeQuotaUsed) return 'This access code has used all its analyses';
-    if (usage && usage.analyses >= usage.analyses_limit) return 'You used all analyses for today';
+    if (uploading) return t('run.reason.uploading');
+    if (codeQuotaUsed) return t('run.reason.codeQuota');
+    if (usage && usage.analyses >= usage.analyses_limit) return t('run.reason.dailyQuota');
     return undefined;
   };
 
@@ -234,10 +221,10 @@ export default function App() {
         const stage = AGENT_STAGE[target];
         if (stage) {
           setStages((prev) => activate(prev, stage));
-          addLog(`Supervisor hands over to the ${AGENT_LABEL[target].toLowerCase()}`);
+          addLog(t('log.handover', { agent: agentLabel(target) }));
         } else if (event.text === 'Writing the report') {
           setStages((prev) => activate(prev, 'write_report'));
-          addLog('Supervisor starts to write the report');
+          addLog(t('log.writing'));
         } else {
           addLog(event.text);
         }
@@ -253,14 +240,14 @@ export default function App() {
           return addTool(next, target, event.tool);
         });
         addLog(
-          `${AGENT_LABEL[event.agent] ?? 'Supervisor'} requests ${TOOL_LABEL[event.tool] ?? event.tool}`,
+          t('log.requests', { agent: agentLabel(event.agent), tool: toolLabel(event.tool) }),
           'tool',
         );
         break;
       }
       case 'tool_result':
         addLog(
-          `${AGENT_LABEL[event.agent] ?? 'Supervisor'} received ${TOOL_LABEL[event.tool] ?? event.tool}`,
+          t('log.received', { agent: agentLabel(event.agent), tool: toolLabel(event.tool) }),
           'success',
         );
         break;
@@ -295,13 +282,13 @@ export default function App() {
           setFinalResult(event);
           addLog(
             event.cached
-              ? 'Served from cache: the same request was analysed recently'
-              : 'Analysis complete. The quality checks are done.',
+              ? t('log.cached')
+              : t('log.complete'),
             'success',
           );
         } else {
-          setAnalysisError((prev) => prev ?? 'The analysis could not be completed. Please try again.');
-          addLog('The analysis could not be completed', 'error');
+          setAnalysisError((prev) => prev ?? t('errors.analysisIncomplete'));
+          addLog(t('log.incomplete'), 'error');
         }
         break;
       }
@@ -342,19 +329,19 @@ export default function App() {
     const files = Object.keys(datasets).length;
     const docs = Object.keys(documents).length;
     addLog(
-      `Inputs verified: ${symbols.join(', ')}` +
-        (files ? `, ${files} price file(s)` : '') +
-        (docs ? `, ${docs} document(s)` : ''),
+      t('log.inputs', { symbols: symbols.join(', ') }) +
+        (files ? t('log.inputFiles', { count: files }) : '') +
+        (docs ? t('log.inputDocs', { count: docs }) : ''),
     );
 
     try {
       await streamAnalysis({ symbols, datasets, documents }, handleStreamEvent, controller.signal);
     } catch (err: unknown) {
       const message = controller.signal.aborted
-        ? 'Analysis cancelled'
+        ? t('log.cancelled')
         : err instanceof Error
           ? err.message
-          : 'The analysis failed';
+          : t('errors.analysisFailed');
       setAnalysisError(message);
       addLog(message, controller.signal.aborted ? 'warning' : 'error');
       setStages((prev) =>
@@ -379,14 +366,14 @@ export default function App() {
   const stepperSteps: StepItem[] = [
     {
       id: 1,
-      title: 'Choose Instruments',
-      instruction: `${selectedSymbols.length} / ${MAX_SYMBOLS} instruments selected`,
+      title: t('stepper.step1.title'),
+      instruction: t('stepper.step1.instruction', { count: selectedSymbols.length, max: MAX_SYMBOLS }),
       state: hasSelectedInstruments && activeStep > 1 ? 'complete' : 'active',
     },
     {
       id: 2,
-      title: 'Provide Data',
-      instruction: hasUploadedRequiredData ? 'All required price files attached' : 'Upload the required price files',
+      title: t('stepper.step2.title'),
+      instruction: hasUploadedRequiredData ? t('stepper.step2.done') : t('stepper.step2.todo'),
       state: !hasSelectedInstruments
         ? 'locked'
         : hasUploadedRequiredData && activeStep > 2
@@ -395,12 +382,12 @@ export default function App() {
     },
     {
       id: 3,
-      title: 'Run Analysis',
+      title: t('stepper.step3.title'),
       instruction: isRunning
-        ? 'The agents are working…'
+        ? t('stepper.step3.running')
         : hasCompletedRun
-          ? 'Analysis finished'
-          : 'Start the research pipeline',
+          ? t('stepper.step3.done')
+          : t('stepper.step3.todo'),
       state:
         !hasSelectedInstruments || !hasUploadedRequiredData
           ? 'locked'
@@ -410,8 +397,8 @@ export default function App() {
     },
     {
       id: 4,
-      title: 'Review Results',
-      instruction: hasCompletedRun ? 'Report, indicators and PDF are ready' : 'Available when the analysis finishes',
+      title: t('stepper.step4.title'),
+      instruction: hasCompletedRun ? t('stepper.step4.done') : t('stepper.step4.todo'),
       state: hasCompletedRun ? 'active' : 'locked',
     },
   ];
@@ -425,7 +412,7 @@ export default function App() {
         </div>
         <div className="glass-panel relative z-10 flex flex-col items-center gap-3.5 rounded-3xl p-8 shadow-2xl" role="status">
           <div className="h-9 w-9 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Loading Investing Engine…</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{t('app.loading')}</span>
         </div>
       </div>
     );
@@ -501,13 +488,13 @@ export default function App() {
 
           {activeStep === 4 && !finalResult && (
             <div className="glass-panel rounded-2xl p-8 text-center">
-              <p className="text-sm text-slate-600 dark:text-slate-400">No results yet. Run the analysis in step 3 first.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{t('app.noResults')}</p>
               <button
                 type="button"
                 onClick={() => setActiveStep(3)}
                 className="mt-4 cursor-pointer rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-600/20 transition-all hover:from-sky-500 hover:to-indigo-500"
               >
-                Go to step 3
+                {t('app.goToStep3')}
               </button>
             </div>
           )}

@@ -1,6 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, KeyRound, Lock, LogOut, RefreshCw, ServerCrash, ShieldX } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { AuthError } from '../types';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { redeemAccessCode } from '../api';
 import { PrivacyNotice } from './Footer';
 
@@ -17,6 +19,9 @@ function Card({ icon, tone, title, children }: { icon: ReactNode; tone: 'blue' |
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
       <div className="glass-panel w-full max-w-md rounded-3xl p-8 text-center shadow-xl">
+        <div className="mb-4 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr text-white shadow-lg ${iconTone}`}>
           {icon}
         </div>
@@ -36,6 +41,7 @@ const primaryButton =
   'inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/25 transition-all hover:from-sky-500 hover:to-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-60';
 
 function AccessCodeForm({ onSignedIn }: { onSignedIn: () => void }) {
+  const { t } = useTranslation();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +55,7 @@ function AccessCodeForm({ onSignedIn }: { onSignedIn: () => void }) {
       await redeemAccessCode(code.trim());
       onSignedIn();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'This access code was not accepted');
+      setError(err instanceof Error ? err.message : t('auth.codeRejected'));
     } finally {
       setBusy(false);
     }
@@ -58,7 +64,7 @@ function AccessCodeForm({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <form onSubmit={submit} className="mt-6 flex flex-col gap-3 text-left">
       <label htmlFor="access-code" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-        Access code
+        {t('auth.codeLabel')}
       </label>
       <input
         id="access-code"
@@ -76,23 +82,23 @@ function AccessCodeForm({ onSignedIn }: { onSignedIn: () => void }) {
         </p>
       )}
       <button type="submit" disabled={busy || !code.trim()} className={primaryButton}>
-        <span>{busy ? 'Checking…' : 'Continue'}</span>
+        <span>{busy ? t('auth.checking') : t('auth.continue')}</span>
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </button>
       <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-        The code works on one device only and has a time limit and an analysis limit. No account
-        and no personal data are necessary.
+        {t('auth.codeHelp')}
       </p>
     </form>
   );
 }
 
 export function AuthScreens({ error, onSignedIn }: AuthScreensProps) {
+  const { t } = useTranslation();
   if (error.status === 401 && error.method === 'code') {
     return (
-      <Card icon={<KeyRound className="h-6 w-6" aria-hidden="true" />} tone="blue" title="Enter your access code">
+      <Card icon={<KeyRound className="h-6 w-6" aria-hidden="true" />} tone="blue" title={t('auth.codeTitle')}>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          This is a private demo of Investing Engine. Enter the access code that you received.
+          {t('auth.codeIntro')}
         </p>
         <AccessCodeForm onSignedIn={onSignedIn} />
       </Card>
@@ -101,14 +107,14 @@ export function AuthScreens({ error, onSignedIn }: AuthScreensProps) {
 
   if (error.status === 401) {
     return (
-      <Card icon={<Lock className="h-6 w-6" aria-hidden="true" />} tone="blue" title="Sign in to continue">
+      <Card icon={<Lock className="h-6 w-6" aria-hidden="true" />} tone="blue" title={t('auth.signInTitle')}>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          This is a private deployment. Sign in with an authorised account.
+          {t('auth.signInIntro')}
         </p>
         <div className="mt-7 flex flex-col gap-3">
           {error.login_url && (
             <a href={error.login_url} className={primaryButton}>
-              <span>Sign in</span>
+              <span>{t('auth.signIn')}</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </a>
           )}
@@ -119,13 +125,13 @@ export function AuthScreens({ error, onSignedIn }: AuthScreensProps) {
 
   if (error.status === 403) {
     return (
-      <Card icon={<ShieldX className="h-6 w-6" aria-hidden="true" />} tone="red" title="Access refused">
+      <Card icon={<ShieldX className="h-6 w-6" aria-hidden="true" />} tone="red" title={t('auth.refusedTitle')}>
         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{error.detail}</p>
         <div className="mt-7 flex flex-col gap-3">
           {error.logout_url && (
             <a href={error.logout_url} className={secondaryButton}>
               <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span>Sign out</span>
+              <span>{t('header.signOut')}</span>
             </a>
           )}
         </div>
@@ -134,12 +140,12 @@ export function AuthScreens({ error, onSignedIn }: AuthScreensProps) {
   }
 
   return (
-    <Card icon={<ServerCrash className="h-6 w-6" aria-hidden="true" />} tone="red" title="Service not available">
+    <Card icon={<ServerCrash className="h-6 w-6" aria-hidden="true" />} tone="red" title={t('auth.unavailableTitle')}>
       <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{error.detail}</p>
       <div className="mt-7 flex flex-col gap-3">
         <button type="button" onClick={onSignedIn} className={secondaryButton}>
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Try again</span>
+          <span>{t('auth.tryAgain')}</span>
         </button>
       </div>
     </Card>

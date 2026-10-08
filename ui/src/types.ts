@@ -126,6 +126,8 @@ export interface QualityChecks {
   checked_figures?: number;
   ungrounded_figures?: string[];
   unexpected_symbols?: string[];
+  /** Required specialists the supervisor did not consult in this run. */
+  missing_specialists?: string[];
 }
 
 export interface TechnicalIndicatorData {
