@@ -23,7 +23,7 @@ dependencies = [
     "langchain-ollama==1.1.0",
     "langgraph==1.2.12",
     "langgraph-supervisor==0.0.31",
-    "mcp==1.30.0",
+    "mcp==2.3.0",
     "matplotlib==3.10.9",
     "numpy==2.2.6",
     "openpyxl==3.1.5",
