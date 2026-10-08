@@ -8,6 +8,7 @@ instrument, and what attribution travels with every result.
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any, TypeVar
@@ -49,6 +50,9 @@ T = TypeVar("T")
 PRICE_UPLOAD_KIND = "prices"
 DOCUMENT_UPLOAD_KIND = "document"
 _NEWS_TTL_SECONDS = 15 * 60
+# When GDELT fails (it rate-limits shared IP addresses hard), the last good
+# result for the same query is used for up to this long, marked as stale.
+_NEWS_STALE_SECONDS = 24 * 60 * 60
 _MACRO_TTL_SECONDS = 60 * 60
 
 
@@ -116,6 +120,7 @@ class MarketData:
         self.model_cache = model_cache
         self.classifier = classifier
         self._news_memo = _Memo(_NEWS_TTL_SECONDS)
+        self._news_last_good: dict[str, tuple[float, dict[str, Any]]] = {}
         self._macro_memo = _Memo(_MACRO_TTL_SECONDS)
 
     @classmethod
@@ -259,10 +264,14 @@ class MarketData:
                 flagged.update(result.categories)
                 date = (item.get("published_at") or "")[:10]
                 lines.append(f"- {date} | {item.get('outlet') or 'unknown'} | {title}")
+            try:
+                tone = self.gdelt.average_tone(instrument, days=days)
+            except ProviderError:
+                tone = None  # headlines are still useful without the tone value
             return {
                 "symbol": instrument.symbol,
                 "window_days": days,
-                "average_tone": self.gdelt.average_tone(instrument, days=days),
+                "average_tone": tone,
                 "headline_count": len(headlines),
                 "headlines": spotlight(
                     self._classify("\n".join(lines) or "(no headlines)", flagged),
@@ -273,7 +282,25 @@ class MarketData:
                 "source": _source_dict(GDELT_SOURCE),
             }
 
-        return self._news_memo.get_or_set(f"{instrument.symbol}:{days}:{limit}", fetch)
+        key = f"{instrument.symbol}:{days}:{limit}"
+        try:
+            result = self._news_memo.get_or_set(key, fetch)
+        except ProviderError:
+            last = self._news_last_good.get(key)
+            if last is None or time.time() - last[0] > _NEWS_STALE_SECONDS:
+                raise
+            fetched_at, stale = last
+            age_hours = round((time.time() - fetched_at) / 3600, 1)
+            return {
+                **stale,
+                "stale": True,
+                "note": (
+                    f"The news service is not available now. These headlines are "
+                    f"from {age_hours} hours ago."
+                ),
+            }
+        self._news_last_good[key] = (time.time(), result)
+        return result
 
     # --- Disclosure documents ----------------------------------------------------
 

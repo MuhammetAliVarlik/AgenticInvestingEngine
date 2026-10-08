@@ -16,6 +16,7 @@ import {
   Terminal,
   MinusCircle
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Step3RunAnalysisProps {
   isRunning: boolean;
@@ -46,6 +47,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
   onProceedToReview,
   hasFinalResults
 }) => {
+  const { t } = useTranslation();
   const logContainerRef = useRef<HTMLDivElement>(null);
   const draftContainerRef = useRef<HTMLDivElement>(null);
 
@@ -76,35 +78,35 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
         return (
           <span className="flex items-center gap-1.5 rounded-xl border border-sky-300/80 bg-gradient-to-r from-sky-500/20 via-cyan-500/15 to-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-sky-800 shadow-xs backdrop-blur-md dark:border-sky-500/40 dark:text-sky-300">
             <Loader2 className="h-3 w-3 animate-spin text-sky-600 dark:text-sky-400" />
-            <span>Running</span>
+            <span>{t('stage.status.running')}</span>
           </span>
         );
       case 'done':
         return (
           <span className="flex items-center gap-1 rounded-xl border border-emerald-300/80 bg-gradient-to-r from-emerald-500/15 to-teal-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 shadow-xs backdrop-blur-md dark:border-emerald-500/40 dark:text-emerald-300">
             <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-            <span>Done</span>
+            <span>{t('stage.status.done')}</span>
           </span>
         );
       case 'not_needed':
         return (
           <span className="flex items-center gap-1 rounded-xl border border-white/60 bg-white/40 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 shadow-xs backdrop-blur-xs dark:border-white/10 dark:bg-slate-800/40 dark:text-slate-400">
             <MinusCircle className="h-3 w-3 text-slate-400" />
-            <span>Not needed</span>
+            <span>{t('stage.status.not_needed')}</span>
           </span>
         );
       case 'failed':
         return (
           <span className="flex items-center gap-1 rounded-xl border border-rose-300/80 bg-gradient-to-r from-rose-500/20 to-red-500/15 px-2.5 py-0.5 text-[11px] font-bold text-rose-800 shadow-xs backdrop-blur-md dark:border-rose-500/40 dark:text-rose-300">
             <AlertCircle className="h-3 w-3 text-rose-600 dark:text-rose-400" />
-            <span>Failed</span>
+            <span>{t('stage.status.failed')}</span>
           </span>
         );
       case 'waiting':
       default:
         return (
           <span className="rounded-xl border border-white/60 bg-white/40 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 shadow-xs backdrop-blur-xs dark:border-white/10 dark:bg-slate-800/40 dark:text-slate-400">
-            Waiting
+            {t('stage.status.waiting')}
           </span>
         );
     }
@@ -120,12 +122,11 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
               3
             </span>
             <h2 id="step3-heading" className="text-base font-bold bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-900 dark:from-white dark:via-sky-100 dark:to-indigo-200 bg-clip-text text-transparent sm:text-lg">
-              Run Multi-Agent Analysis
+              {t('step3.title')}
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            A supervisor agent sends work to four specialists (technical, news risk, macro,
-            disclosures). Each stage and each data request shows here as it happens.
+            {t('step3.subtitle')}
           </p>
         </div>
 
@@ -138,7 +139,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-rose-600/25 hover:from-rose-500 hover:to-red-500 transition-all cursor-pointer"
             >
               <StopCircle className="h-4 w-4" />
-              <span>Cancel</span>
+              <span>{t('step3.cancel')}</span>
             </button>
           ) : hasFinalResults ? (
             <div className="flex items-center gap-2.5">
@@ -149,14 +150,14 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
                 className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/70 px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-white dark:border-white/10 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
               >
                 <Play className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
-                <span>Run again</span>
+                <span>{t('step3.runAgain')}</span>
               </button>
               <button
                 type="button"
                 onClick={onProceedToReview}
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-sky-600/25 hover:from-sky-500 hover:to-indigo-500 transition-all cursor-pointer"
               >
-                <span>View the results</span>
+                <span>{t('step3.viewResults')}</span>
               </button>
             </div>
           ) : (
@@ -172,7 +173,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
                 }`}
               >
                 <Play className="h-4 w-4" />
-                <span>Start analysis</span>
+                <span>{t('step3.start')}</span>
               </button>
               {!canRun && disabledReason && (
                 <span className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
@@ -200,10 +201,10 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
           <div className="flex items-center justify-between border-b border-white/50 pb-3.5 dark:border-white/10">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                8-Stage Multi-Agent Pipeline
+                {t('step3.pipelineTitle')}
               </h3>
               <p className="mt-0.5 text-xs text-slate-400">
-                Agent handoffs and data requests
+                {t('step3.pipelineSubtitle')}
               </p>
             </div>
 
@@ -241,11 +242,11 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
                       </span>
                       <div>
                         <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                          {stage.name}
+                          {t(`stages.${stage.id}`)}
                         </span>
                         {stage.agent && (
                           <span className="ml-1.5 font-mono text-[10px] text-slate-400">
-                            ({stage.agent})
+                            ({t(`agents.${stage.agent}`)})
                           </span>
                         )}
                       </div>
@@ -258,7 +259,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-200/40 pt-2 dark:border-white/10">
                       <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400">
                         <Wrench className="h-3 w-3" />
-                        <span>Tools:</span>
+                        <span>{t('step3.tools')}</span>
                       </span>
                       {stage.toolsUsed.map((tool) => (
                         <span
@@ -284,11 +285,11 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-sky-400" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Real-Time Activity Log (24-Hour Clock)
+                  {t('step3.logTitle')}
                 </h3>
               </div>
               <span className="font-mono text-[11px] text-slate-400">
-                {activityLogs.length} events
+                {t('step3.events', { count: activityLogs.length })}
               </span>
             </div>
 
@@ -300,7 +301,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
             >
               {activityLogs.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-500 font-sans">
-                  Ready. Click &ldquo;Execute Analysis&rdquo; to begin stream dispatch.
+                  {t('step3.logEmpty')}
                 </div>
               ) : (
                 activityLogs.map((log) => (
@@ -335,13 +336,13 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Supervisor Stream Draft
+                  {t('step3.draftTitle')}
                 </h3>
               </div>
               {isRunning && (
                 <span className="flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400">
                   <span className="h-2 w-2 rounded-full bg-sky-500 animate-ping" />
-                  <span>Synthesizing...</span>
+                  <span>{t('step3.writing')}</span>
                 </span>
               )}
             </div>
@@ -354,7 +355,7 @@ export const Step3RunAnalysis: React.FC<Step3RunAnalysisProps> = ({
                 <div className="whitespace-pre-wrap">{streamingReportDraft}</div>
               ) : (
                 <div className="py-8 text-center text-xs text-slate-400 font-sans">
-                  The supervisor&apos;s streamed report draft will appear here in real time.
+                  {t('step3.draftEmpty')}
                 </div>
               )}
             </div>

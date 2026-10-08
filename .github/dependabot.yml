@@ -6,6 +6,10 @@ updates:
     groups:
       langchain:
         patterns: ["langchain*", "langgraph*"]
+    ignore:
+      # langchain-mcp-adapters requires mcp<2. Remove when it supports mcp 2.
+      - dependency-name: mcp
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: /ui
     schedule: { interval: weekly }

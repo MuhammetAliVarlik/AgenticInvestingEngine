@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Check, X, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TechnicalIndicatorData } from '../types';
 
 interface TechnicalIndicatorTableProps {
@@ -10,28 +11,29 @@ interface TechnicalIndicatorTableProps {
 }
 
 export const TechnicalIndicatorTable: React.FC<TechnicalIndicatorTableProps> = ({ data, symbol, isIndex }) => {
+  const { t, i18n } = useTranslation();
   const formatVal = (val: unknown, digits = 2) => {
     if (val === undefined || val === null || val === '') return '—';
-    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-    if (typeof val === 'number') return val.toLocaleString('tr-TR', { maximumFractionDigits: digits });
+    if (typeof val === 'boolean') return val ? t('common.yes') : t('common.no');
+    if (typeof val === 'number') return val.toLocaleString(i18n.resolvedLanguage, { maximumFractionDigits: digits });
     return String(val);
   };
   const level = (val: unknown) =>
-    typeof val === 'number' ? (isIndex ? `${formatVal(val)} pts` : `₺${formatVal(val)}`) : formatVal(val);
+    typeof val === 'number' ? (isIndex ? t('indicators.points', { value: formatVal(val) }) : `₺${formatVal(val)}`) : formatVal(val);
 
   const signal = String(data.signal || '').toLowerCase();
   let SignalIcon = Minus;
   let signalBadgeClass = 'border-white/70 bg-white/60 text-slate-700 dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300 shadow-xs backdrop-blur-md';
-  let signalText = signal ? 'Neutral' : 'Not available';
+  let signalText = signal ? t('signal.neutral') : t('step4.notAvailable');
 
   if (signal === 'bullish') {
     SignalIcon = TrendingUp;
     signalBadgeClass = 'border-emerald-300/80 bg-gradient-to-r from-emerald-500/15 via-teal-500/15 to-emerald-500/10 text-emerald-800 dark:border-emerald-500/40 dark:text-emerald-300 shadow-xs backdrop-blur-md';
-    signalText = 'Bullish';
+    signalText = t('signal.bullish');
   } else if (signal === 'bearish') {
     SignalIcon = TrendingDown;
     signalBadgeClass = 'border-rose-300/80 bg-gradient-to-r from-rose-500/15 via-red-500/15 to-rose-500/10 text-rose-800 dark:border-rose-500/40 dark:text-rose-300 shadow-xs backdrop-blur-md';
-    signalText = 'Bearish';
+    signalText = t('signal.bearish');
   }
 
   const above = data.price_above_ema34;
@@ -39,65 +41,65 @@ export const TechnicalIndicatorTable: React.FC<TechnicalIndicatorTableProps> = (
   const rows: { key: string; label: string; value?: string; customNode?: React.ReactNode; hint: string }[] = [
     {
       key: 'price',
-      label: 'Last close',
+      label: t('indicators.rows.price.label'),
       value: level(data.price),
-      hint: isIndex ? 'Daily close of the index (TCMB EVDS)' : 'Last close in the uploaded price file',
+      hint: isIndex ? t('indicators.priceHintIndex') : t('indicators.priceHintEquity'),
     },
     {
       key: 'signal',
-      label: 'Signal',
+      label: t('indicators.rows.signal.label'),
       customNode: (
         <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${signalBadgeClass}`}>
           <SignalIcon className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{signalText}</span>
         </span>
       ),
-      hint: 'From the forecast RSI: below 30 bullish, above 70 bearish, else neutral',
+      hint: t('indicators.rows.signal.hint'),
     },
-    { key: 'rsi', label: 'RSI (14)', value: formatVal(data.rsi), hint: '14-period relative strength index' },
+    { key: 'rsi', label: t('indicators.rows.rsi.label'), value: formatVal(data.rsi), hint: t('indicators.rows.rsi.hint') },
     {
       key: 'predicted_next_rsi',
-      label: 'Forecast next RSI',
+      label: t('indicators.rows.predicted_next_rsi.label'),
       value: formatVal(data.predicted_next_rsi),
-      hint: 'RandomForest forecast of the RSI for the next trading day',
+      hint: t('indicators.rows.predicted_next_rsi.hint'),
     },
-    { key: 'ema34', label: 'EMA 34', value: level(data.ema34), hint: '34-day exponential moving average' },
-    { key: 'ema89', label: 'EMA 89', value: level(data.ema89), hint: '89-day exponential moving average' },
+    { key: 'ema34', label: t('indicators.rows.ema34.label'), value: level(data.ema34), hint: t('indicators.rows.ema34.hint') },
+    { key: 'ema89', label: t('indicators.rows.ema89.label'), value: level(data.ema89), hint: t('indicators.rows.ema89.hint') },
     {
       key: 'price_above_ema34',
-      label: 'Close above EMA 34',
+      label: t('indicators.rows.price_above_ema34.label'),
       customNode:
         typeof above === 'boolean' ? (
           <span className={`inline-flex items-center gap-1.5 font-medium ${above ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
             {above ? <Check className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" aria-hidden="true" />}
-            <span>{above ? 'Yes' : 'No'}</span>
+            <span>{above ? t('common.yes') : t('common.no')}</span>
           </span>
         ) : (
           <span>—</span>
         ),
-      hint: 'Short-term trend filter',
+      hint: t('indicators.rows.price_above_ema34.hint'),
     },
-    { key: 'macd', label: 'MACD (12, 26)', value: formatVal(data.macd, 4), hint: 'MACD line: EMA 12 minus EMA 26' },
+    { key: 'macd', label: t('indicators.rows.macd.label'), value: formatVal(data.macd, 4), hint: t('indicators.rows.macd.hint') },
     {
       key: 'bb_pct',
-      label: 'Bollinger %B',
+      label: t('indicators.rows.bb_pct.label'),
       value: formatVal(data.bb_pct),
-      hint: 'Close inside the 20-day, 2σ band: 0 = lower band, 1 = upper band',
+      hint: t('indicators.rows.bb_pct.hint'),
     },
     {
       key: 'channel_position',
-      label: 'Channel position',
+      label: t('indicators.rows.channel_position.label'),
       value: formatVal(data.channel_position),
-      hint: 'Position of the close in the 20-day range: bottom, middle or top',
+      hint: t('indicators.rows.channel_position.hint'),
     },
     {
       key: 'momentum_divergence',
-      label: 'Momentum divergence',
+      label: t('indicators.rows.momentum_divergence.label'),
       value: formatVal(data.momentum_divergence),
-      hint: 'RSI and price moved in opposite directions in the last 5 days',
+      hint: t('indicators.rows.momentum_divergence.hint'),
     },
-    { key: 'as_of', label: 'As of', value: formatVal(data.as_of), hint: 'Date of the last price' },
-    { key: 'source', label: 'Price source', value: formatVal(data.source), hint: 'Data source of the prices' },
+    { key: 'as_of', label: t('indicators.rows.as_of.label'), value: formatVal(data.as_of), hint: t('indicators.rows.as_of.hint') },
+    { key: 'source', label: t('indicators.rows.source.label'), value: formatVal(data.source), hint: t('indicators.rows.source.hint') },
   ];
 
   return (
@@ -105,25 +107,25 @@ export const TechnicalIndicatorTable: React.FC<TechnicalIndicatorTableProps> = (
       <div className="border-b border-white/50 bg-white/40 px-6 py-4 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/40 flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Technical indicators
+            {t('indicators.title')}
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Values that the technical analyst used for {symbol}
+            {t('indicators.subtitle', { symbol })}
           </p>
         </div>
         <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
           <Info className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" />
-          <span>Source: technical_snapshot tool</span>
+          <span>{t('indicators.source')}</span>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm" aria-label={`Technical indicators for ${symbol}`}>
+        <table className="w-full text-left text-sm" aria-label={t('indicators.tableLabel', { symbol })}>
           <thead className="border-b border-white/40 bg-white/30 text-[11px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-xs dark:border-white/10 dark:bg-slate-800/40 dark:text-slate-400">
             <tr>
-              <th scope="col" className="px-6 py-3">Indicator Key</th>
-              <th scope="col" className="px-6 py-3 text-right">Value</th>
-              <th scope="col" className="hidden md:table-cell px-6 py-3 text-slate-400">Context</th>
+              <th scope="col" className="px-6 py-3">{t('indicators.colIndicator')}</th>
+              <th scope="col" className="px-6 py-3 text-right">{t('indicators.colValue')}</th>
+              <th scope="col" className="hidden md:table-cell px-6 py-3 text-slate-400">{t('indicators.colContext')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/60 dark:divide-white/5 font-mono text-xs">

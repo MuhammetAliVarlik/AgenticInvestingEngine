@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Instrument } from '../types';
 import { Search, Check, ArrowRight, X, FileCheck, FileSpreadsheet } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Step1InstrumentsProps {
   instruments: Instrument[];
@@ -17,6 +18,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
   onProceed,
   isLoading
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<'all' | 'equity' | 'index'>('all');
 
@@ -24,10 +26,10 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
     return instruments.filter((item) => {
       if (kindFilter !== 'all' && item.kind !== kindFilter) return false;
       if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase().trim();
+      const q = searchQuery.toLocaleLowerCase('tr').trim();
       return (
-        item.symbol.toLowerCase().includes(q) ||
-        item.name.toLowerCase().includes(q)
+        item.symbol.toLocaleLowerCase('tr').includes(q) ||
+        item.name.toLocaleLowerCase('tr').includes(q)
       );
     });
   }, [instruments, kindFilter, searchQuery]);
@@ -44,18 +46,18 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
               1
             </span>
             <h2 id="step1-heading" className="text-base font-bold bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-900 dark:from-white dark:via-sky-100 dark:to-indigo-200 bg-clip-text text-transparent sm:text-lg">
-              Choose Instruments
+              {t('step1.title')}
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Select up to 3 Borsa İstanbul equities or indices for coordinated multi-agent cross-analysis.
+            {t('step1.subtitle')}
           </p>
         </div>
 
         {/* Counter badge */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/60 px-3 py-1.5 text-xs font-medium backdrop-blur-md shadow-xs dark:border-white/10 dark:bg-slate-800/60">
-            <span className="text-slate-500 dark:text-slate-400">Selection:</span>
+            <span className="text-slate-500 dark:text-slate-400">{t('step1.selection')}</span>
             <span className="font-mono font-bold bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-indigo-400 tabular-nums">
               {selectedSymbols.length} / 3
             </span>
@@ -71,7 +73,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                 : 'bg-slate-200/60 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500 cursor-not-allowed'
             }`}
           >
-            <span>Continue to Data Upload</span>
+            <span>{t('step1.continue')}</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -81,9 +83,9 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
       {selectedSymbols.length > 0 && (
         <div className="rounded-2xl border border-sky-300/60 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-teal-500/5 p-4 shadow-sm backdrop-blur-xl dark:border-sky-500/30 dark:from-sky-500/15 dark:via-indigo-500/15">
           <div className="text-xs font-semibold text-sky-950 dark:text-sky-200 mb-2.5 flex items-center justify-between">
-            <span>Active Targets for Investigation ({selectedSymbols.length}/3):</span>
+            <span>{t('step1.selected', { count: selectedSymbols.length })}</span>
             <span className="text-[11px] font-medium text-sky-700 dark:text-sky-300">
-              {3 - selectedSymbols.length} slot{3 - selectedSymbols.length !== 1 ? 's' : ''} remaining
+              {t('step1.slotsLeft', { count: 3 - selectedSymbols.length })}
             </span>
           </div>
           <div className="flex flex-wrap gap-2.5">
@@ -102,7 +104,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                     type="button"
                     onClick={() => onToggleSymbol(sym)}
                     className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors"
-                    aria-label={`Remove ${sym}`}
+                    aria-label={t('step1.remove', { symbol: sym })}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -121,7 +123,8 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by symbol or company name (e.g. THYAO, Aselsan, XU100)..."
+            placeholder={t('step1.search')}
+            aria-label={t('step1.searchLabel')}
             className="w-full rounded-xl border border-white/70 bg-white/75 py-2.5 pl-10 pr-3.5 text-xs text-slate-900 placeholder:text-slate-400 shadow-xs backdrop-blur-md focus:border-sky-500 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20 dark:border-white/10 dark:bg-slate-900/75 dark:text-slate-100 dark:placeholder:text-slate-500"
           />
         </div>
@@ -137,7 +140,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            All ({instruments.length})
+            {t('step1.filterAll', { count: instruments.length })}
           </button>
           <button
             type="button"
@@ -148,7 +151,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            Equities ({instruments.filter((i) => i.kind === 'equity').length})
+            {t('step1.filterEquities', { count: instruments.filter((i) => i.kind === 'equity').length })}
           </button>
           <button
             type="button"
@@ -159,7 +162,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            Indices ({instruments.filter((i) => i.kind === 'index').length})
+            {t('step1.filterIndices', { count: instruments.filter((i) => i.kind === 'index').length })}
           </button>
         </div>
       </div>
@@ -176,7 +179,7 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
         </div>
       ) : filteredInstruments.length === 0 ? (
         <div className="glass-panel rounded-2xl p-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          No instruments found matching &ldquo;{searchQuery}&rdquo;.
+          {t('step1.noMatch', { query: searchQuery })}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -209,12 +212,12 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                     {item.public_prices ? (
                       <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-300/60 bg-gradient-to-r from-emerald-500/15 to-teal-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800 backdrop-blur-xs dark:border-emerald-500/30 dark:text-emerald-300">
                         <FileCheck className="h-3 w-3" />
-                        <span>No file needed</span>
+                        <span>{t('common.noFileNeeded')}</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-800 backdrop-blur-xs dark:border-amber-500/30 dark:text-amber-300">
                         <FileSpreadsheet className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                        <span>Price file needed</span>
+                        <span>{t('common.priceFileNeeded')}</span>
                       </span>
                     )}
                   </div>
@@ -225,15 +228,15 @@ export const Step1Instruments: React.FC<Step1InstrumentsProps> = ({
                 </div>
 
                 <div className="mt-3.5 flex items-center justify-between border-t border-slate-200/40 pt-2.5 text-[11px] text-slate-400 dark:border-white/10">
-                  <span className="capitalize">{item.kind}</span>
+                  <span>{t(`common.kind.${item.kind}`)}</span>
                   <div className="flex items-center gap-1">
                     {isSelected ? (
                       <span className="flex items-center gap-1 font-bold text-sky-700 dark:text-sky-300">
                         <Check className="h-3.5 w-3.5 stroke-[3]" />
-                        <span>Selected</span>
+                        <span>{t('step1.selectedBadge')}</span>
                       </span>
                     ) : (
-                      <span className="text-slate-400">Click to add</span>
+                      <span className="text-slate-400">{t('step1.clickToAdd')}</span>
                     )}
                   </div>
                 </div>
