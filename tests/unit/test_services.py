@@ -121,3 +121,48 @@ def test_upload_store_owner_isolation_and_kind_check():
     store.delete(upload.id, owner="alice")
     with pytest.raises(UploadNotFoundError):
         store.get(upload.id, owner="alice", kind="prices")
+
+
+class FlakyGdelt(StubGdelt):
+    """Headlines work until ``down`` is set; the tone endpoint always fails."""
+
+    def __init__(self):
+        super().__init__()
+        self.down = False
+
+    def headlines(self, instrument, *, days, limit):
+        if self.down:
+            raise ProviderError("GDELT rate limit reached; try again shortly")
+        return super().headlines(instrument, days=days, limit=limit)
+
+    def average_tone(self, instrument, *, days):
+        raise ProviderError("GDELT rate limit reached; try again shortly")
+
+
+def test_news_survives_a_failing_tone_request(settings):
+    service = MarketData.from_settings(settings)
+    service.gdelt = FlakyGdelt()
+    news = service.news("THYAO")
+    assert news["headline_count"] == 1
+    assert news["average_tone"] is None
+
+
+def test_last_good_news_is_served_as_stale_when_gdelt_fails(settings):
+    service = MarketData.from_settings(settings)
+    service.gdelt = FlakyGdelt()
+    fresh = service.news("THYAO")
+    service._news_memo._cache.clear()  # the short cache expired
+    service.gdelt.down = True
+
+    stale = service.news("THYAO")
+    assert stale["stale"] is True
+    assert "not available" in stale["note"]
+    assert stale["headlines"] == fresh["headlines"]
+
+
+def test_news_error_without_earlier_result_is_raised(settings):
+    service = MarketData.from_settings(settings)
+    service.gdelt = FlakyGdelt()
+    service.gdelt.down = True
+    with pytest.raises(ProviderError):
+        service.news("THYAO")
