@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 # Yahoo Finance access is for local, personal use only and is never enabled
 # in a deployed build - see DATA_SOURCES.md.
-local = ["yfinance==1.6.0"]
+local = ["yfinance==1.7.0"]
 # Langfuse tracing; enabled at runtime only when LANGFUSE_* keys are set.
 observability = ["langfuse==4.16.0"]
 dev = [
