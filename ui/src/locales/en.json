@@ -1,0 +1,370 @@
+{
+  "common": {
+    "noFileNeeded": "No file needed",
+    "priceFileNeeded": "Price file needed",
+    "kind": {
+      "index": "Index",
+      "equity": "Equity"
+    },
+    "close": "Close",
+    "disclaimer": "Research and education only. Not investment advice.",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "step1": {
+    "title": "Choose Instruments",
+    "subtitle": "Select up to 3 Borsa İstanbul equities or indices for the multi-agent analysis.",
+    "selection": "Selection:",
+    "continue": "Continue to Data Upload",
+    "selected": "Selected for analysis ({{count}}/3):",
+    "slotsLeft_one": "{{count}} slot left",
+    "slotsLeft_other": "{{count}} slots left",
+    "remove": "Remove {{symbol}}",
+    "search": "Search by symbol or company name (e.g. THYAO, Aselsan, XU100)…",
+    "searchLabel": "Search instruments",
+    "filterAll": "All ({{count}})",
+    "filterEquities": "Equities ({{count}})",
+    "filterIndices": "Indices ({{count}})",
+    "noMatch": "No instrument matches “{{query}}”.",
+    "selectedBadge": "Selected",
+    "clickToAdd": "Click to add"
+  },
+  "stepper": {
+    "label": "Workflow progress",
+    "state": {
+      "locked": "Locked",
+      "active": "Active",
+      "complete": "Complete"
+    },
+    "step1": {
+      "title": "Choose Instruments",
+      "instruction": "{{count}} / {{max}} instruments selected"
+    },
+    "step2": {
+      "title": "Provide Data",
+      "done": "All required price files attached",
+      "todo": "Upload the required price files"
+    },
+    "step3": {
+      "title": "Run Analysis",
+      "running": "The agents are working…",
+      "done": "Analysis finished",
+      "todo": "Start the research pipeline"
+    },
+    "step4": {
+      "title": "Review Results",
+      "done": "Report, indicators and PDF are ready",
+      "todo": "Available when the analysis finishes"
+    }
+  },
+  "agents": {
+    "supervisor": "Supervisor",
+    "technical_analyst": "Technical analyst",
+    "news_analyst": "News analyst",
+    "macro_analyst": "Macro analyst",
+    "disclosure_analyst": "Disclosure analyst"
+  },
+  "tools": {
+    "technical_snapshot": "price indicators",
+    "news_headlines": "news headlines",
+    "macro_snapshot": "macro indicators",
+    "disclosure_document": "the disclosure document",
+    "prediction_history": "previous analyses",
+    "list_instruments": "the instrument list"
+  },
+  "errors": {
+    "serviceUnavailable": "The service is not available",
+    "uploadFailed": "Upload failed",
+    "analysisIncomplete": "The analysis could not be completed. Please try again.",
+    "analysisFailed": "The analysis failed"
+  },
+  "run": {
+    "reason": {
+      "noSelection": "Select at least one instrument in step 1",
+      "missingFile": "Upload a price file for {{symbols}} in step 2",
+      "uploading": "Wait until the uploads are complete",
+      "codeQuota": "This access code has used all its analyses",
+      "dailyQuota": "You used all analyses for today"
+    }
+  },
+  "log": {
+    "handover": "Supervisor hands over to the {{agent}}",
+    "writing": "Supervisor starts to write the report",
+    "requests": "{{agent}} requests {{tool}}",
+    "received": "{{agent}} received {{tool}}",
+    "cached": "Served from cache: the same request was analysed recently",
+    "complete": "Analysis complete. The quality checks are done.",
+    "incomplete": "The analysis could not be completed",
+    "inputs": "Inputs verified: {{symbols}}",
+    "inputFiles_one": ", {{count}} price file",
+    "inputFiles_other": ", {{count}} price files",
+    "inputDocs_one": ", {{count}} document",
+    "inputDocs_other": ", {{count}} documents",
+    "cancelled": "Analysis cancelled"
+  },
+  "app": {
+    "loading": "Loading Investing Engine…",
+    "noResults": "No results yet. Run the analysis in step 3 first.",
+    "goToStep3": "Go to step 3"
+  },
+  "language": {
+    "label": "Interface language"
+  },
+  "header": {
+    "analysesOnCode": "analyses on this code",
+    "analysesToday": "analyses today",
+    "tagline": "Borsa İstanbul Research",
+    "sampleDataTitle": "This build shows sample data, not real analyses",
+    "sampleData": "Sample data",
+    "expires": "Expires {{date}}",
+    "accessCode": "Access code {{id}}",
+    "localMode": "Local mode",
+    "signOut": "Sign out"
+  },
+  "privacy": {
+    "link": "Privacy",
+    "title": "Privacy",
+    "items": [
+      "This demo does not ask for your name, e-mail address or any account.",
+      "An access code identifies only a random number. The demo does not record who received a code.",
+      "The demo does not record your IP address in its application logs.",
+      "Price files that you upload stay in memory for a maximum of two hours. Only your code can use them.",
+      "Results of analyses that use your price file are visible to your code only. Analyses of public data (for example XU100) are shared and contain no data about you.",
+      "The hosting platform can keep technical logs (for example IP addresses) for its own security.",
+      "The output is for research and education. It is not investment advice.",
+      "The interface can be shown in Turkish. Reports are written in English."
+    ]
+  },
+  "footer": {
+    "tagline": "Borsa İstanbul research",
+    "about": "Multi-agent research that combines price indicators, news risk, the macro economy and company disclosures. Each figure in a report is checked against the source data."
+  },
+  "auth": {
+    "codeRejected": "This access code was not accepted",
+    "codeLabel": "Access code",
+    "checking": "Checking…",
+    "continue": "Continue",
+    "codeHelp": "The code works on one device only and has a time limit and an analysis limit. No account and no personal data are necessary.",
+    "codeTitle": "Enter your access code",
+    "codeIntro": "This is a private demo of Investing Engine. Enter the access code that you received.",
+    "signInTitle": "Sign in to continue",
+    "signInIntro": "This is a private deployment. Sign in with an authorised account.",
+    "signIn": "Sign in",
+    "refusedTitle": "Access refused",
+    "unavailableTitle": "Service not available",
+    "tryAgain": "Try again"
+  },
+  "step2": {
+    "title": "Provide Data & Disclosures",
+    "subtitle": "Equities need a daily price file (.xlsx or .csv).",
+    "documentsOptional": "A disclosure filing (.pdf, .png or .jpg) is optional.",
+    "documentsOff": "Document upload is off in this demo.",
+    "continue": "Continue to Analysis",
+    "whyTitle": "Why do individual equities require historical price files?",
+    "whyText": "Borsa İstanbul equity prices are licensed data. Thus the engine analyses a daily price file that you can get yourself, for example from your brokerage or from İş Yatırım:",
+    "isyatirimLink": "İş Yatırım historical prices (Excel download)",
+    "uploadAsIs": "Upload the Excel file without changes",
+    "priceFile": "Historical Price File (.xlsx / .csv)",
+    "priceValidated": "{{rows}} trading days, {{start}} to {{end}}",
+    "priceHelp": "Accepts İş Yatırım historical export (.xlsx) or standard CSV format.",
+    "evdsTitle": "Prices come from TCMB EVDS",
+    "evdsText": "The engine gets the daily closing levels of the index from the Central Bank of the Republic of Türkiye (EVDS). You do not need a file.",
+    "documentFile": "Disclosure / Filing (Optional)",
+    "documentValidated": "{{pages}} pages read ({{ocr}} with OCR)",
+    "documentHelp": "A KAP filing or a scan of it (.pdf, .png or .jpg). Scanned pages are read with OCR.",
+    "documentsOffTitle": "Document upload is off",
+    "documentsOffText": "Documents can contain personal data. Thus this demo does not accept them.",
+    "allValidated": "All necessary price files are validated.",
+    "missing": "Price file missing for: {{symbols}}",
+    "continueRun": "Continue to Run Analysis"
+  },
+  "upload": {
+    "inputLabel": "Upload file for {{symbol}} - {{label}}",
+    "uploading": "Uploading and validating…",
+    "validated": "Validated",
+    "failed": "Upload failed",
+    "drop": "Drag and drop the file here, or click to browse.",
+    "replace": "Replace",
+    "remove": "Remove",
+    "select": "Select file"
+  },
+  "stage": {
+    "status": {
+      "running": "Running",
+      "done": "Done",
+      "not_needed": "Not needed",
+      "failed": "Failed",
+      "waiting": "Waiting"
+    }
+  },
+  "stages": {
+    "verify_inputs": "Verify inputs",
+    "plan_analysis": "Plan the analysis",
+    "technical_analysis": "Technical analysis",
+    "news_risk": "News risk",
+    "macro_backdrop": "Macro backdrop",
+    "disclosures": "Disclosures",
+    "write_report": "Write the report",
+    "quality_checks": "Quality checks"
+  },
+  "step3": {
+    "title": "Run Multi-Agent Analysis",
+    "subtitle": "A supervisor agent sends work to four specialists (technical, news risk, macro, disclosures). Each stage and each data request shows here as it happens.",
+    "cancel": "Cancel",
+    "runAgain": "Run again",
+    "viewResults": "View the results",
+    "start": "Start analysis",
+    "pipelineTitle": "8-stage multi-agent pipeline",
+    "pipelineSubtitle": "Agent handoffs and data requests",
+    "tools": "Tools:",
+    "logTitle": "Activity log (24-hour clock)",
+    "events_one": "{{count}} event",
+    "events_other": "{{count}} events",
+    "logEmpty": "Ready. Push “Start analysis” to begin.",
+    "draftTitle": "Report draft",
+    "writing": "Writing…",
+    "draftEmpty": "The supervisor's report draft will appear here in real time."
+  },
+  "signal": {
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "neutral": "Neutral"
+  },
+  "step4": {
+    "cached": "Cached",
+    "title": "Review Research Results",
+    "subtitle": "The report, the quality checks, the indicators of each instrument and the news risk history.",
+    "servedFromCache": "Served from cache",
+    "downloadPdf": "Download PDF",
+    "reportTab": "Report",
+    "tiles": {
+      "grounded": "Figures grounded",
+      "allMatched": "All matched",
+      "checked": "Figures checked",
+      "figures": "figures",
+      "injections": "Injections removed",
+      "tokens": "LLM tokens",
+      "tokensUnit": "tokens",
+      "duration": "Duration"
+    },
+    "warn": {
+      "skippedTitle": "A required analysis was skipped",
+      "skippedText": "The supervisor did not consult: {{agents}}. The report has no findings for these areas. Run the analysis again for a complete report.",
+      "ungroundedTitle": "Figures that do not agree with the data",
+      "ungroundedText": "These numbers in the report do not agree with any value from the data tools:",
+      "unexpectedTitle": "Unexpected symbols in the report",
+      "unexpectedText": "The report mentions symbols that you did not select: {{symbols}}",
+      "injectionTitle": "Prompt injection attempts removed",
+      "injectionText_one": "{{count}} suspicious instruction in third-party text was found and removed before the agents read it ({{flags}}).",
+      "injectionText_other": "{{count}} suspicious instructions in third-party text were found and removed before the agents read them ({{flags}})."
+    },
+    "instrumentType": "Instrument type:",
+    "signal": "Signal:",
+    "notAvailable": "not available",
+    "noRiskScore": "The news analyst did not give a risk score for {{symbol}} in this analysis.",
+    "sources": "Source attributions"
+  },
+  "risk": {
+    "title": "News risk",
+    "subtitle": "From recent headlines and disclosures for {{symbol}}",
+    "subtitleNoSymbol": "From recent headlines",
+    "band": "Band:",
+    "bands": {
+      "low": "Low risk",
+      "moderate": "Moderate risk",
+      "high": "High risk"
+    },
+    "levels": {
+      "low": "Low",
+      "moderate": "Moderate",
+      "high": "High"
+    },
+    "meterLabel": "News risk score {{score}} out of 10, {{band}}",
+    "descriptions": {
+      "low": "The headlines show few negative events.",
+      "moderate": "The headlines show a mix of normal market news and some concerns.",
+      "high": "The headlines show serious concerns, for example disputes, legal cases or regulator actions."
+    }
+  },
+  "indicators": {
+    "points": "{{value}} pts",
+    "priceHintIndex": "Daily close of the index (TCMB EVDS)",
+    "priceHintEquity": "Last close in the uploaded price file",
+    "title": "Technical indicators",
+    "subtitle": "Values that the technical analyst used for {{symbol}}",
+    "source": "Source: technical_snapshot tool",
+    "tableLabel": "Technical indicators for {{symbol}}",
+    "colIndicator": "Indicator",
+    "colValue": "Value",
+    "colContext": "Meaning",
+    "rows": {
+      "price": {
+        "label": "Last close"
+      },
+      "signal": {
+        "label": "Signal",
+        "hint": "From the forecast RSI: below 30 bullish, above 70 bearish, else neutral"
+      },
+      "rsi": {
+        "label": "RSI (14)",
+        "hint": "14-period relative strength index"
+      },
+      "predicted_next_rsi": {
+        "label": "Forecast next RSI",
+        "hint": "RandomForest forecast of the RSI for the next trading day"
+      },
+      "ema34": {
+        "label": "EMA 34",
+        "hint": "34-day exponential moving average"
+      },
+      "ema89": {
+        "label": "EMA 89",
+        "hint": "89-day exponential moving average"
+      },
+      "price_above_ema34": {
+        "label": "Close above EMA 34",
+        "hint": "Short-term trend filter"
+      },
+      "macd": {
+        "label": "MACD (12, 26)",
+        "hint": "MACD line: EMA 12 minus EMA 26"
+      },
+      "bb_pct": {
+        "label": "Bollinger %B",
+        "hint": "Close inside the 20-day, 2σ band: 0 = lower band, 1 = upper band"
+      },
+      "channel_position": {
+        "label": "Channel position",
+        "hint": "Position of the close in the 20-day range: bottom, middle or top"
+      },
+      "momentum_divergence": {
+        "label": "Momentum divergence",
+        "hint": "RSI and price moved in opposite directions in the last 5 days"
+      },
+      "as_of": {
+        "label": "As of",
+        "hint": "Date of the last price"
+      },
+      "source": {
+        "label": "Price source",
+        "hint": "Data source of the prices"
+      }
+    }
+  },
+  "history": {
+    "empty": "No previous analysis is recorded for {{symbol}}.",
+    "title": "News risk history",
+    "subtitle": "News risk scores of previous analyses for {{symbol}}",
+    "chart": "Chart",
+    "table": "Table",
+    "chartLabel": "Risk score history chart for {{symbol}}",
+    "pointLabel": "Analysis on {{date}}: score {{score}}, signal {{signal}}",
+    "riskScore": "Risk score",
+    "price": "Price at analysis",
+    "signal": "Signal",
+    "date": "Date",
+    "visibleTo": "Visible to",
+    "onlyYou": "Only you",
+    "allUsers": "All users"
+  }
+}

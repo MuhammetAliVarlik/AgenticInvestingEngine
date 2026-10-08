@@ -1,5 +1,7 @@
 import { Activity, KeyRound, LogOut, Sparkles, User as UserIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { UsageStats, UserSession } from '../types';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface HeaderProps {
   user: UserSession | null;
@@ -9,10 +11,11 @@ interface HeaderProps {
 
 export function Header({ user, usage, isMock }: HeaderProps) {
   // An access code has its own quota; otherwise show the daily budget of the account.
+  const { t, i18n } = useTranslation();
   const code = user?.code;
   const used = code ? code.used : usage?.analyses;
   const limit = code ? code.quota : usage?.analyses_limit;
-  const label = code ? 'analyses on this code' : 'analyses today';
+  const label = code ? t('header.analysesOnCode') : t('header.analysesToday');
   const percentUsed =
     used !== undefined && limit ? Math.min(100, Math.round((used / Math.max(1, limit)) * 100)) : 0;
 
@@ -29,7 +32,7 @@ export function Header({ user, usage, isMock }: HeaderProps) {
             </span>
             <span className="hidden text-xs text-slate-300 dark:text-slate-600 sm:inline">·</span>
             <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 sm:inline">
-              Borsa İstanbul Research
+              {t('header.tagline')}
             </span>
           </div>
         </div>
@@ -59,12 +62,14 @@ export function Header({ user, usage, isMock }: HeaderProps) {
           {isMock && (
             <span
               className="hidden items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:text-amber-300 lg:flex"
-              title="This build shows sample data, not real analyses"
+              title={t('header.sampleDataTitle')}
             >
               <Sparkles className="h-3 w-3" aria-hidden="true" />
-              Sample data
+              {t('header.sampleData')}
             </span>
           )}
+
+          <LanguageSwitcher />
 
           {user && (
             <div className="flex items-center gap-2.5">
@@ -76,19 +81,23 @@ export function Header({ user, usage, isMock }: HeaderProps) {
                 )}
                 <span
                   className="max-w-[130px] truncate sm:max-w-[200px]"
-                  title={code ? `Expires ${new Date(code.expires_at).toLocaleString()}` : user.user}
+                  title={
+                    code
+                      ? t('header.expires', { date: new Date(code.expires_at).toLocaleString(i18n.resolvedLanguage) })
+                      : user.user
+                  }
                 >
-                  {user.provider === 'none' ? 'Local mode' : user.user}
+                  {code ? t('header.accessCode', { id: code.id }) : user.provider === 'none' ? t('header.localMode') : user.user}
                 </span>
               </div>
               {user.logout_url && (
                 <a
                   href={user.logout_url}
                   className="flex items-center gap-1 rounded-xl border border-white/60 bg-white/40 p-1.5 text-xs text-slate-600 shadow-xs backdrop-blur-md transition-all hover:bg-white/80 hover:text-slate-900 dark:border-white/10 dark:bg-slate-800/40 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-white"
-                  aria-label="Sign out"
+                  aria-label={t('header.signOut')}
                 >
                   <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden md:inline">Sign out</span>
+                  <span className="hidden md:inline">{t('header.signOut')}</span>
                 </a>
               )}
             </div>
