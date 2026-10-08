@@ -91,6 +91,7 @@ async def test_full_analysis_routes_through_every_specialist(server):
     assert result.technical["XU100"]["source"] == "TCMB EVDS"
     assert result.risk == {"XU100": 3.0}
     assert result.specialist_text["technical_analyst"].strip() == "XU100 trades above its EMA34."
+    assert result.checks["missing_specialists"] == []
     assert result.errors == []
 
 
@@ -109,6 +110,8 @@ async def test_supervisor_may_skip_specialists(server):
     assert result.technical == {}
     assert result.risk == {"XU100": 7.0}
     assert result.specialist_text["technical_analyst"] == ""
+    # Skipping is possible, but never silent.
+    assert result.checks["missing_specialists"] == ["technical_analyst", "macro_analyst"]
 
 
 async def test_uploaded_dataset_is_injected_for_its_owner_only(server, market):

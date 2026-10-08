@@ -91,7 +91,7 @@ sequenceDiagram
 | Quota | A code can start a maximum number of analyses. Default: 10. |
 | One device | The first browser that uses a code keeps it. A second device cannot use the same code. |
 | Revocation | The owner can stop a code immediately. |
-| Daily cap | All codes together can start a maximum of `GLOBAL_DAILY_ANALYSES` analyses each day (default 50). |
+| Daily cap | All codes together can start a maximum of `GLOBAL_DAILY_ANALYSES` analyses each day (default 12, from the free-tier capacity in [OPERATIONS.md](OPERATIONS.md#cost-and-capacity)). |
 | No documents | The gateway does not accept document uploads in this mode. Documents can contain personal data. |
 | No content in traces | The API sends no prompt or document text to the tracing backend (`TRACE_CONTENT=false`). |
 | No access logs | The gateway does not write IP addresses to its logs. |
@@ -319,7 +319,7 @@ This step lets GitHub Actions deploy without a stored cloud credential.
 | Secret | `LANGFUSE_SECRET_KEY` | Optional |
 | Variable | `AZURE_RESOURCE_GROUP` | `investing-engine-rg` |
 | Variable | `SIGN_IN_MODE` | `accesscode` (default) or `github` |
-| Variable | `GLOBAL_DAILY_ANALYSES` | Optional, default `50` |
+| Variable | `GLOBAL_DAILY_ANALYSES` | Optional, default `12` |
 | Variable | `ALERT_EMAIL_TO`, `SMTP_HOST`, `SMTP_USER` | Optional, for owner alerts |
 | Variable | `LANGFUSE_PUBLIC_KEY` | Optional |
 

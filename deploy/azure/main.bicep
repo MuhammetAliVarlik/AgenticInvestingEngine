@@ -42,7 +42,7 @@ param githubClientSecret string = ''
 param accessCodeSecret string = ''
 
 @description('accesscode mode only: maximum analyses per day for the whole deployment.')
-param globalDailyAnalyses int = 50
+param globalDailyAnalyses int = 12
 
 @description('Optional owner alerts by e-mail (no personal data is sent).')
 param alertEmailTo string = ''
