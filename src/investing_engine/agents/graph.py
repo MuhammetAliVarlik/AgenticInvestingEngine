@@ -149,7 +149,7 @@ def risk_scores(text: str) -> dict[str, float]:
         score = float(match["score"].replace(",", "."))
         if 0 <= score <= 10:
             scores[match["symbol"].upper().removesuffix(".IS")] = score
-    if text and not scores:
+    if text and not scores and "unavailable" not in text.lower():
         # Content is not logged (it can quote third-party headlines); length is enough
         # to tell "no answer" from "answer in an unexpected format".
         logger.warning(
