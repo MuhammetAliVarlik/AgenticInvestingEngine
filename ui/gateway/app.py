@@ -74,7 +74,8 @@ ALLOWED_ROUTES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
 )
 CODE_COOKIE = "ie_code"
 DEVICE_COOKIE = "ie_device"
-DEFAULT_GLOBAL_DAILY_ANALYSES = 50
+# Groq free tier: about 13 complete analyses a day (docs/OPERATIONS.md).
+DEFAULT_GLOBAL_DAILY_ANALYSES = 12
 BRUTE_FORCE_THRESHOLD = 20  # failed code entries per hour before an alert
 BURST_SHARE = 0.8  # share of a code's quota used within one hour before an alert
 

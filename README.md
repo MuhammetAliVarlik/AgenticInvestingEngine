@@ -62,6 +62,7 @@ MCP clients can use the same tools.
 | **Access control** | Anonymous access codes (signed, time-limited, quota-bound, one device) or platform sign-in with an allowlist. An internal API with a token, rate limits, owner alerts by e-mail and a production configuration that stops if a setting is not safe. |
 | **Privacy by design** | The public mode collects no personal data: no accounts, no IP addresses in logs, no document uploads and no content in traces. |
 | **Licensed data** | The engine uses only TCMB EVDS, GDELT and files from the user. Each source has its terms and attribution in the code. |
+| **Operations** | Service targets, measured latency, tokens, cost and capacity, a failure-scenario table, an incident log of the first live runs and a runbook: [docs/OPERATIONS.md](docs/OPERATIONS.md). |
 | **Deployment-ready** | Infrastructure as code for Azure Container Apps (primary) and Hugging Face Spaces (fallback), with manual GitHub Actions workflows. Both targets have no cost. |
 
 ---
@@ -653,7 +654,7 @@ The app also accepts scanned PDFs and PNG or JPEG images. OCR reads them.
 | Injection screening | The engine finds all 19 English and Turkish attacks in `tests/fixtures/redteam.json`. It flags none of 12 normal filing and headline sentences. | `pytest tests/unit/test_guardrails.py` |
 | Live attack success rate | The script puts each attack in a filing. Then it runs a full analysis with the real model, with guardrails on and off. | `python scripts/redteam_eval.py` |
 | OCR quality | Character and word error rates on Turkish and English text with skew, blur, noise and JPEG damage. The filter step decreases the character error rate on noisy scans from 12.7% to 0%. | `python scripts/ocr_eval.py` |
-| Token and capacity profile | Token usage (p50 and p95) for each agent, and the throughput of the free tier. | `python scripts/token_profile.py` |
+| Token and capacity profile | One complete analysis: approximately 15,800 tokens and 11 LLM calls. Paid tier: USD 0.003 for each analysis. Free tier: 13 analyses each day. Refer to [Cost and capacity](docs/OPERATIONS.md#cost-and-capacity). | `python scripts/token_profile.py` |
 | Signal backtest | Direction of the close five trading days after each RSI signal. Five BIST equities, two years, run on 2026-10-01. Bullish signals: 87.2% correct (39 signals). Bearish signals: 45.0% correct (220 signals). On these equities, high RSI values often show that the trend continues. Thus the supervisor compares the signal with the trend and the news. | `python scripts/backtest.py` |
 
 ```mermaid
@@ -738,7 +739,7 @@ The gateway uses these variables:
 | `AUTH_PROVIDER` | `none` | `none`, `accesscode`, `easyauth` or `oidc` |
 | `ALLOWED_USERS` | none | Necessary for `easyauth` and `oidc` |
 | `ACCESS_CODE_SECRET` | none | Key that signs access codes (minimum 32 characters) |
-| `GLOBAL_DAILY_ANALYSES` | `50` | Maximum analyses each day for all access codes together |
+| `GLOBAL_DAILY_ANALYSES` | `12` | Maximum analyses each day for all access codes together |
 | `GATEWAY_DB_PATH` | `/tmp/gateway/gateway.db` | Code store: device bindings, usage, revocations |
 | `REVOKED_CODE_IDS` | none | Code IDs that stay revoked after a restart |
 | `ALERT_EMAIL_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | none | Owner alerts by e-mail |
