@@ -4,7 +4,7 @@
 # Google OIDC with an allowlist (AUTH_PROVIDER=oidc).
 
 # ---- Build the React single-page app --------------------------------------------
-FROM node:22-alpine AS web
+FROM node:26-alpine AS web
 WORKDIR /web
 COPY ui/package.json ui/package-lock.json ./
 RUN npm ci --no-audit --no-fund

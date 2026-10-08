@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type StepState = 'locked' | 'active' | 'complete';
 
@@ -21,9 +22,10 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   activeStep,
   onSelectStep
 }) => {
+  const { t } = useTranslation();
   return (
     <nav
-      aria-label="Workflow progress"
+      aria-label={t('stepper.label')}
       className="sticky top-[57px] z-20 border-b border-white/50 bg-white/70 px-4 py-3 backdrop-blur-xl shadow-xs dark:border-white/10 dark:bg-slate-900/70"
     >
       <div className="mx-auto max-w-7xl">
@@ -90,7 +92,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
                           : 'text-slate-400 dark:text-slate-500'
                       }`}
                     >
-                      {step.state}
+                      {t(`stepper.state.${step.state}`)}
                     </span>
                   </div>
 

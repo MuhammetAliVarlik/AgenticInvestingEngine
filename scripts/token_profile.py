@@ -3,14 +3,15 @@
 
 Runs N full analyses in-process (no cache), records the provider-reported
 token usage per agent, and derives how many analyses per day and per minute
-the free tier allows.
+the free tier allows, and what one analysis costs on the paid tier.
 
 Usage:
-    python scripts/token_profile.py --runs 5 --symbol XU100 --rpd 1000 --tpm 12000 --rpm 30
+    python scripts/token_profile.py --runs 5 --symbol XU100
 
-Defaults for --rpd/--tpm/--rpm match Groq's free tier for
-openai/gpt-oss-120b at the time of writing; check
-https://console.groq.com/settings/limits for your organisation's values.
+Defaults match Groq's free tier for openai/gpt-oss-120b (200k tokens and
+1,000 requests per day, 8k tokens and 30 requests per minute) and its paid
+price (USD 0.15 input / 0.60 output per million tokens) in October 2026;
+check https://console.groq.com/settings/limits and the Groq model page.
 """
 
 from __future__ import annotations
@@ -48,7 +49,11 @@ async def profile(runs: int, symbol: str) -> list[AnalysisResult]:
                     build_graph(build_chat_model(settings), tools), [resolve(symbol)]
                 )
             tokens = sum(u["input_tokens"] + u["output_tokens"] for u in result.usage.values())
-            print(f"run {run + 1}/{runs}: {tokens} tokens, {result.timings}")
+            agents = ", ".join(sorted(result.usage)) or "none"
+            errors = f", errors: {result.errors}" if result.errors else ""
+            print(
+                f"run {run + 1}/{runs}: {tokens} tokens, {result.timings}, agents: {agents}{errors}"
+            )
             results.append(result)
         market.close()
     return results
@@ -62,7 +67,10 @@ def main() -> None:
     parser.add_argument("--symbol", default="XU100")
     parser.add_argument("--rpd", type=int, default=1000, help="requests per day limit")
     parser.add_argument("--rpm", type=int, default=30, help="requests per minute limit")
-    parser.add_argument("--tpm", type=int, default=12000, help="tokens per minute limit")
+    parser.add_argument("--tpm", type=int, default=8000, help="tokens per minute limit")
+    parser.add_argument("--tpd", type=int, default=200_000, help="tokens per day limit")
+    parser.add_argument("--price-in", type=float, default=0.15, help="USD per 1M input tokens")
+    parser.add_argument("--price-out", type=float, default=0.60, help="USD per 1M output tokens")
     args = parser.parse_args()
 
     results = [r for r in asyncio.run(profile(args.runs, args.symbol)) if r.usage]
@@ -70,12 +78,15 @@ def main() -> None:
         raise SystemExit("No run reported token usage; check the LLM configuration.")
 
     per_agent: dict[str, list[int]] = defaultdict(list)
-    totals, calls = [], []
+    totals, calls, costs = [], [], []
     for result in results:
         for agent, usage in result.usage.items():
             per_agent[agent].append(usage["input_tokens"] + usage["output_tokens"])
         totals.append(sum(u["input_tokens"] + u["output_tokens"] for u in result.usage.values()))
         calls.append(sum(u["calls"] for u in result.usage.values()))
+        tokens_in = sum(u["input_tokens"] for u in result.usage.values())
+        tokens_out = sum(u["output_tokens"] for u in result.usage.values())
+        costs.append((tokens_in * args.price_in + tokens_out * args.price_out) / 1_000_000)
 
     print(f"\n{'Agent':<22}{'p50 tokens':>12}{'p95 tokens':>12}")
     for agent, values in sorted(per_agent.items()):
@@ -84,12 +95,21 @@ def main() -> None:
     print(f"{'total per analysis':<22}{percentile(totals, 50):>12.0f}{p95_tokens:>12.0f}")
     print(f"LLM calls per analysis: p50 {percentile(calls, 50):.0f}, p95 {p95_calls:.0f}")
 
-    per_day = args.rpd / p95_calls
+    by_requests, by_tokens = args.rpd / p95_calls, args.tpd / p95_tokens
+    per_day = min(by_requests, by_tokens)
     per_minute = min(args.rpm / p95_calls, args.tpm / p95_tokens)
     print("\nCapacity plan (p95, free tier):")
-    print(f"  analyses per day    ~{per_day:.0f}  (RPD {args.rpd} / {p95_calls:.0f} calls)")
+    print(
+        f"  analyses per day    ~{per_day:.0f}  "
+        f"(RPD {args.rpd} / {p95_calls:.0f} calls = {by_requests:.0f}; "
+        f"TPD {args.tpd} / {p95_tokens:.0f} tokens = {by_tokens:.0f})"
+    )
     print(
         f"  analyses per minute ~{per_minute:.2f}  (bounded by RPM {args.rpm} and TPM {args.tpm})"
+    )
+    print(
+        f"\nPaid tier cost per analysis (USD {args.price_in}/{args.price_out} per 1M in/out): "
+        f"p50 ${percentile(costs, 50):.4f}, p95 ${percentile(costs, 95):.4f}"
     )
 
 
