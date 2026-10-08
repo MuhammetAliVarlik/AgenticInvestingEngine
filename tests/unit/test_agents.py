@@ -201,3 +201,11 @@ def test_risk_score_of_one_symbol_never_leaks_into_another():
 
 def test_out_of_range_scores_are_ignored():
     assert risk_scores("=== News Risk: XU100 ===\nRisk Score: 42/10") == {}
+
+
+def test_unavailable_score_is_not_logged_as_unreadable(caplog):
+    text = "=== News Risk: XU100 ===\nRisk Score: unavailable\nReasoning: service down."
+    assert risk_scores(text) == {}
+    assert "readable risk score" not in caplog.text
+    risk_scores("=== News Risk: XU100 ===\nRisk: high")
+    assert "readable risk score" in caplog.text
