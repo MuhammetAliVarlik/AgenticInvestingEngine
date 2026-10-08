@@ -37,6 +37,9 @@ from investing_engine.universe import Instrument
 
 logger = logging.getLogger(__name__)
 
+# Specialists every analysis must consult; the disclosure analyst only with documents.
+CORE_SPECIALISTS = ("technical_analyst", "news_analyst", "macro_analyst")
+
 SUPERVISOR = "supervisor"
 SPECIALIST_TOOLS: dict[str, tuple[str, ...]] = {
     "technical_analyst": ("technical_snapshot",),
@@ -149,7 +152,7 @@ def risk_scores(text: str) -> dict[str, float]:
         score = float(match["score"].replace(",", "."))
         if 0 <= score <= 10:
             scores[match["symbol"].upper().removesuffix(".IS")] = score
-    if text and not scores:
+    if text and not scores and "unavailable" not in text.lower():
         # Content is not logged (it can quote third-party headlines); length is enough
         # to tell "no answer" from "answer in an unexpected format".
         logger.warning(
@@ -172,7 +175,11 @@ class AnalysisResult:
 
     @classmethod
     def from_messages(
-        cls, messages: Sequence[BaseMessage], *, requested: Sequence[str] = ()
+        cls,
+        messages: Sequence[BaseMessage],
+        *,
+        requested: Sequence[str] = (),
+        required: Sequence[str] = (),
     ) -> AnalysisResult:
         technical = {
             str(r["symbol"]): r
@@ -194,13 +201,23 @@ class AnalysisResult:
                 [m.artifact for m in tool_messages] + [m.text for m in tool_messages]
             ),
         )
+        checks = check.as_dict() if report else {}
+        if report:
+            # The supervisor model chooses whom to consult and sometimes skips a
+            # required specialist; make that visible instead of silent.
+            missing = [name for name in required if not texts.get(name)]
+            checks["missing_specialists"] = missing
+            if missing:
+                logger.warning(
+                    "Supervisor skipped required specialists", extra={"missing": missing}
+                )
         return cls(
             report=report,
             technical=technical,
             risk=risk_scores(texts["news_analyst"]),
             specialist_text=texts,
             usage=token_usage(messages),
-            checks=check.as_dict() if report else {},
+            checks=checks,
             injection_flags=sorted(flags),
         )
 
@@ -279,7 +296,10 @@ async def stream_analysis(
         errors.append(type(exc).__name__)
         yield {"type": "error", "message": "The analysis could not be completed."}
 
-    result = AnalysisResult.from_messages(messages, requested=[i.symbol for i in instruments])
+    required = [*CORE_SPECIALISTS, *(["disclosure_analyst"] if documents_for else [])]
+    result = AnalysisResult.from_messages(
+        messages, requested=[i.symbol for i in instruments], required=required
+    )
     result.errors = errors
     finished = time.perf_counter()
     result.timings = {

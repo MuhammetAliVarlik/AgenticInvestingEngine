@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Loader2
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Step2DataUploadProps {
   instruments: Instrument[];
@@ -37,6 +38,7 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
   documentsEnabled,
   onProceed
 }) => {
+  const { t } = useTranslation();
   // Check readiness: every selected equity must have a validated dataset
   const missingEquities = selectedSymbols.filter((sym) => {
     const inst = instruments.find((i) => i.symbol === sym);
@@ -62,14 +64,12 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
               2
             </span>
             <h2 id="step2-heading" className="text-base font-bold bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-900 dark:from-white dark:via-sky-100 dark:to-indigo-200 bg-clip-text text-transparent sm:text-lg">
-              Provide Data & Disclosures
+              {t('step2.title')}
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Equities need a daily price file (.xlsx or .csv).{' '}
-            {documentsEnabled
-              ? 'A disclosure filing (.pdf, .png or .jpg) is optional.'
-              : 'Document upload is off in this demo.'}
+            {t('step2.subtitle')}{' '}
+            {documentsEnabled ? t('step2.documentsOptional') : t('step2.documentsOff')}
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
               : 'bg-slate-200/60 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500 cursor-not-allowed'
           }`}
         >
-          <span>Continue to Analysis</span>
+          <span>{t('step2.continue')}</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -96,11 +96,10 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
           </div>
           <div className="space-y-1">
             <h3 className="font-semibold text-sky-950 dark:text-sky-200 text-sm">
-              Why do individual equities require historical price files?
+              {t('step2.whyTitle')}
             </h3>
             <p className="leading-relaxed text-sky-900/90 dark:text-sky-300/90">
-              Borsa İstanbul equity prices are licensed data. Thus the engine analyses a daily price
-              file that you can get yourself, for example from your brokerage or from İş Yatırım:
+              {t('step2.whyText')}
             </p>
             <div className="pt-1.5 flex flex-wrap items-center gap-2">
               <a
@@ -109,11 +108,11 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 font-semibold text-sky-700 underline hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-100"
               >
-                <span>İş Yatırım historical prices (Excel download)</span>
+                <span>{t('step2.isyatirimLink')}</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
               <span className="text-slate-400 dark:text-slate-500">
-                · Upload the Excel file without changes
+                · {t('step2.uploadAsIs')}
               </span>
             </div>
           </div>
@@ -146,11 +145,11 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                 <div className="flex items-center gap-2">
                   {isIndex ? (
                     <span className="rounded-lg border border-emerald-300/60 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 dark:border-emerald-500/30 dark:text-emerald-300">
-                      No file needed
+                      {t('common.noFileNeeded')}
                     </span>
                   ) : (
                     <span className="rounded-lg border border-sky-300/60 bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-800 dark:border-sky-500/30 dark:text-sky-300">
-                      Price file needed
+                      {t('common.priceFileNeeded')}
                     </span>
                   )}
                 </div>
@@ -161,14 +160,14 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                 {/* 1. Price History File Dropzone (Required for equities) */}
                 {!isIndex ? (
                   <UploadDropzone
-                    label="Historical Price File (.xlsx / .csv)"
+                    label={t('step2.priceFile')}
                     required
                     symbol={symbol}
                     accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                     isUploading={state.datasetUploading}
                     validationResult={
                       state.dataset
-                        ? `${state.dataset.rows} trading days, ${state.dataset.start} to ${state.dataset.end}`
+                        ? t('step2.priceValidated', { rows: state.dataset.rows, start: state.dataset.start, end: state.dataset.end })
                         : undefined
                     }
                     errorMessage={state.datasetError}
@@ -176,17 +175,16 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                     onReplace={(file) => onUploadDataset(symbol, file)}
                     onRemove={() => onRemoveDataset(symbol)}
                     icon={<FileSpreadsheet className="h-5 w-5 text-sky-600 dark:text-sky-400" />}
-                    helpText="Accepts İş Yatırım historical export (.xlsx) or standard CSV format."
+                    helpText={t('step2.priceHelp')}
                   />
                 ) : (
                   <div className="flex flex-col justify-center rounded-2xl border border-dashed border-emerald-300/60 bg-emerald-500/10 p-5 text-xs dark:border-emerald-500/30 dark:bg-emerald-950/20 backdrop-blur-sm">
                     <div className="flex items-center gap-2 font-semibold text-emerald-800 dark:text-emerald-300">
                       <CheckCircle2 className="h-4 w-4" />
-                      <span>Prices come from TCMB EVDS</span>
+                      <span>{t('step2.evdsTitle')}</span>
                     </div>
                     <p className="mt-1 text-slate-600 dark:text-slate-400 leading-relaxed">
-                      The engine gets the daily closing levels of the index from the Central Bank of
-                      the Republic of Türkiye (EVDS). You do not need a file.
+                      {t('step2.evdsText')}
                     </p>
                   </div>
                 )}
@@ -194,14 +192,14 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                 {/* 2. Disclosure Document Dropzone (Optional for all) */}
                 {documentsEnabled ? (
                 <UploadDropzone
-                  label="Material Disclosure / Filing (Optional)"
+                  label={t('step2.documentFile')}
                   required={false}
                   symbol={symbol}
                   accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/*"
                   isUploading={state.documentUploading}
                   validationResult={
                     state.document
-                      ? `${state.document.pages} pages analyzed (${state.document.ocr_pages} OCR-scanned)`
+                      ? t('step2.documentValidated', { pages: state.document.pages, ocr: state.document.ocr_pages })
                       : undefined
                   }
                   errorMessage={state.documentError}
@@ -209,16 +207,16 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
                   onReplace={(file) => onUploadDocument(symbol, file)}
                   onRemove={() => onRemoveDocument(symbol)}
                   icon={<FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" />}
-                  helpText="A KAP filing or a scan of it (.pdf, .png or .jpg). Scanned pages are read with OCR."
+                  helpText={t('step2.documentHelp')}
                 />
                 ) : (
                   <div className="flex flex-col justify-center rounded-2xl border border-dashed border-slate-300/70 bg-slate-500/5 p-5 text-xs dark:border-white/10">
                     <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-300">
                       <FileText className="h-4 w-4" />
-                      <span>Document upload is off</span>
+                      <span>{t('step2.documentsOffTitle')}</span>
                     </div>
                     <p className="mt-1 leading-relaxed text-slate-600 dark:text-slate-400">
-                      Documents can contain personal data. Thus this demo does not accept them.
+                      {t('step2.documentsOffText')}
                     </p>
                   </div>
                 )}
@@ -233,8 +231,8 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
         <div>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
             {missingEquities.length === 0
-              ? 'All necessary price files are validated.'
-              : `Price file missing for: ${missingEquities.join(', ')}`}
+              ? t('step2.allValidated')
+              : t('step2.missing', { symbols: missingEquities.join(', ') })}
           </span>
         </div>
 
@@ -248,7 +246,7 @@ export const Step2DataUpload: React.FC<Step2DataUploadProps> = ({
               : 'bg-slate-200/60 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500 cursor-not-allowed'
           }`}
         >
-          <span>Continue to Run Analysis</span>
+          <span>{t('step2.continueRun')}</span>
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
@@ -284,6 +282,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
   icon,
   helpText
 }) => {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -322,7 +321,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
         accept={accept}
         onChange={handleChange}
         className="hidden"
-        aria-label={`Upload file for ${symbol} - ${label}`}
+        aria-label={t('upload.inputLabel', { symbol, label })}
       />
 
       <div>
@@ -345,13 +344,13 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
           {isUploading ? (
             <div className="flex items-center gap-2 text-xs font-medium text-sky-600 dark:text-sky-400">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Uploading and validating…</span>
+              <span>{t('upload.uploading')}</span>
             </div>
           ) : validationResult ? (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Validated</span>
+                <span>{t('upload.validated')}</span>
               </div>
               <p className="font-mono text-xs text-slate-700 dark:text-slate-200">
                 &ldquo;{validationResult}&rdquo;
@@ -361,14 +360,14 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
                 <AlertCircle className="h-4 w-4" />
-                <span>Upload Failed</span>
+                <span>{t('upload.failed')}</span>
               </div>
               <p className="text-xs text-rose-600 dark:text-rose-400">{errorMessage}</p>
             </div>
           ) : (
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Drag and drop file here, or click to browse.
+                {t('upload.drop')}
               </p>
               <p className="mt-1 text-[11px] text-slate-400">{helpText}</p>
             </div>
@@ -386,7 +385,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
               className="flex items-center gap-1.5 rounded-xl border border-white/70 bg-white/70 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-white dark:border-white/10 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-800 transition-all cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Replace</span>
+              <span>{t('upload.replace')}</span>
             </button>
             <button
               type="button"
@@ -394,7 +393,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
               className="flex items-center gap-1.5 rounded-xl border border-rose-200/60 bg-rose-50/60 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-xs hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-all cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>Remove</span>
+              <span>{t('upload.remove')}</span>
             </button>
           </>
         ) : (
@@ -404,7 +403,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
             className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-sky-600/20 hover:from-sky-500 hover:to-indigo-500 transition-all cursor-pointer"
           >
             <Upload className="h-3.5 w-3.5" />
-            <span>Select File</span>
+            <span>{t('upload.select')}</span>
           </button>
         )}
       </div>

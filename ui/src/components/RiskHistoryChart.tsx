@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HistoricalPrediction } from '../types';
 import { BarChart3, Table as TableIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface RiskHistoryChartProps {
   history: HistoricalPrediction[];
@@ -8,13 +9,14 @@ interface RiskHistoryChartProps {
 }
 
 export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, symbol }) => {
+  const { t, i18n } = useTranslation();
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   if (!history || history.length === 0) {
     return (
       <div className="glass-panel rounded-2xl p-8 text-center text-xs text-slate-500 dark:text-slate-400 shadow-sm">
-        No previous prediction history recorded for {symbol}.
+        {t('history.empty', { symbol })}
       </div>
     );
   }
@@ -53,7 +55,7 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
   const formatDate = (iso: string) => {
     try {
       const d = new Date(iso);
-      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      return d.toLocaleDateString(i18n.resolvedLanguage, { day: '2-digit', month: 'short' });
     } catch {
       return iso;
     }
@@ -66,10 +68,10 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/50 pb-3.5 dark:border-white/10">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Historical Risk Score Trajectory
+            {t('history.title')}
           </h4>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Evolution of multi-agent news and headline risk assessments for {symbol}
+            {t('history.subtitle', { symbol })}
           </p>
         </div>
 
@@ -86,7 +88,7 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
             aria-pressed={viewMode === 'chart'}
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            <span>Chart View</span>
+            <span>{t('history.chart')}</span>
           </button>
           <button
             type="button"
@@ -99,7 +101,7 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
             aria-pressed={viewMode === 'table'}
           >
             <TableIcon className="h-3.5 w-3.5" />
-            <span>Table View</span>
+            <span>{t('history.table')}</span>
           </button>
         </div>
       </div>
@@ -111,7 +113,7 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
               className="w-full max-w-full h-auto select-none"
               role="img"
-              aria-label={`Risk score history chart for ${symbol}`}
+              aria-label={t('history.chartLabel', { symbol })}
             >
               <defs>
                 <linearGradient id={`areaGrad-${symbol}`} x1="0" y1="0" x2="0" y2="1">
@@ -205,7 +207,7 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
                     onMouseLeave={() => setHoveredIndex(null)}
                     tabIndex={0}
                     role="button"
-                    aria-label={`Prediction on ${formatDate(pt.timestamp)}: score ${pt.score}, signal ${pt.signal}`}
+                    aria-label={t('history.pointLabel', { date: formatDate(pt.timestamp), score: pt.score, signal: t(`signal.${String(pt.signal).toLowerCase()}`, { defaultValue: String(pt.signal) }) })}
                     onFocus={() => setHoveredIndex(idx)}
                     onBlur={() => setHoveredIndex(null)}
                   >
@@ -251,23 +253,23 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
             >
               <div className="font-bold text-slate-200">{formatDate(hoveredPoint.timestamp)}</div>
               <div className="mt-1 flex items-center gap-2 text-slate-300">
-                <span>Risk Score:</span>
+                <span>{t('history.riskScore')}:</span>
                 <span className="font-mono font-bold bg-gradient-to-r from-sky-400 to-indigo-300 bg-clip-text text-transparent tabular-nums">
                   {hoveredPoint.score.toFixed(1)} / 10
                 </span>
               </div>
               {hoveredPoint.price_at_prediction && (
                 <div className="flex items-center gap-2 text-slate-300">
-                  <span>Price at Prediction:</span>
+                  <span>{t('history.price')}:</span>
                   <span className="font-mono font-semibold text-white tabular-nums">
-                    {hoveredPoint.price_at_prediction.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
+                    {hoveredPoint.price_at_prediction.toLocaleString(i18n.resolvedLanguage, { maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-slate-300">
-                <span>Signal:</span>
+                <span>{t('history.signal')}:</span>
                 <span className="capitalize font-bold text-sky-400">
-                  {hoveredPoint.signal}
+                  {t(`signal.${String(hoveredPoint.signal).toLowerCase()}`, { defaultValue: String(hoveredPoint.signal) })}
                 </span>
               </div>
             </div>
@@ -279,11 +281,11 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
           <table className="w-full text-left text-xs" aria-label={`Prediction history table for ${symbol}`}>
             <thead className="border-b border-white/40 bg-white/30 text-[11px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur-xs dark:border-white/10 dark:bg-slate-800/40 dark:text-slate-400">
               <tr>
-                <th scope="col" className="px-5 py-3">Date</th>
-                <th scope="col" className="px-5 py-3">Signal</th>
-                <th scope="col" className="px-5 py-3 text-right">Risk Score</th>
-                <th scope="col" className="px-5 py-3 text-right">Price at Prediction</th>
-                <th scope="col" className="px-5 py-3">Visible to</th>
+                <th scope="col" className="px-5 py-3">{t('history.date')}</th>
+                <th scope="col" className="px-5 py-3">{t('history.signal')}</th>
+                <th scope="col" className="px-5 py-3 text-right">{t('history.riskScore')}</th>
+                <th scope="col" className="px-5 py-3 text-right">{t('history.price')}</th>
+                <th scope="col" className="px-5 py-3">{t('history.visibleTo')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/60 dark:divide-white/5 font-mono text-xs">
@@ -307,17 +309,17 @@ export const RiskHistoryChart: React.FC<RiskHistoryChartProps> = ({ history, sym
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center gap-1.5 ${colorClass}`}>
                         <Icon className="h-3.5 w-3.5" />
-                        <span className="capitalize">{row.signal ?? '—'}</span>
+                        <span>{row.signal ? t(`signal.${String(row.signal).toLowerCase()}`, { defaultValue: String(row.signal) }) : '—'}</span>
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums text-slate-900 dark:text-slate-100 font-bold">
                       {row.risk_score !== null ? `${row.risk_score.toFixed(1)} / 10` : '—'}
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums text-slate-900 dark:text-slate-100">
-                      {row.price_at_prediction !== null ? row.price_at_prediction.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : '—'}
+                      {row.price_at_prediction !== null ? row.price_at_prediction.toLocaleString(i18n.resolvedLanguage, { maximumFractionDigits: 2 }) : '—'}
                     </td>
                     <td className="px-5 py-3 font-sans text-slate-600 dark:text-slate-400">
-                      {row.private ? 'Only you' : 'All users'}
+                      {row.private ? t('history.onlyYou') : t('history.allUsers')}
                     </td>
                   </tr>
                 );

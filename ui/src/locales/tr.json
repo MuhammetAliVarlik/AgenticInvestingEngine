@@ -1,0 +1,370 @@
+{
+  "common": {
+    "noFileNeeded": "Dosya gerekmez",
+    "priceFileNeeded": "Fiyat dosyası gerekli",
+    "kind": {
+      "index": "Endeks",
+      "equity": "Hisse"
+    },
+    "close": "Kapat",
+    "disclaimer": "Yalnızca araştırma ve eğitim amaçlıdır. Yatırım tavsiyesi değildir.",
+    "yes": "Evet",
+    "no": "Hayır"
+  },
+  "step1": {
+    "title": "Enstrüman Seçin",
+    "subtitle": "Çok ajanlı analiz için en fazla 3 Borsa İstanbul hissesi veya endeksi seçin.",
+    "selection": "Seçim:",
+    "continue": "Veri Yüklemeye Geç",
+    "selected": "Analiz için seçilenler ({{count}}/3):",
+    "slotsLeft_one": "{{count}} yer kaldı",
+    "slotsLeft_other": "{{count}} yer kaldı",
+    "remove": "{{symbol}} seçimini kaldır",
+    "search": "Sembol veya şirket adıyla arayın (ör. THYAO, Aselsan, XU100)…",
+    "searchLabel": "Enstrüman ara",
+    "filterAll": "Tümü ({{count}})",
+    "filterEquities": "Hisseler ({{count}})",
+    "filterIndices": "Endeksler ({{count}})",
+    "noMatch": "“{{query}}” ile eşleşen enstrüman yok.",
+    "selectedBadge": "Seçildi",
+    "clickToAdd": "Eklemek için tıklayın"
+  },
+  "stepper": {
+    "label": "İş akışı ilerlemesi",
+    "state": {
+      "locked": "Kilitli",
+      "active": "Aktif",
+      "complete": "Tamamlandı"
+    },
+    "step1": {
+      "title": "Enstrüman Seçin",
+      "instruction": "{{count}} / {{max}} enstrüman seçildi"
+    },
+    "step2": {
+      "title": "Veri Yükleyin",
+      "done": "Gerekli fiyat dosyaları eklendi",
+      "todo": "Gerekli fiyat dosyalarını yükleyin"
+    },
+    "step3": {
+      "title": "Analizi Çalıştırın",
+      "running": "Ajanlar çalışıyor…",
+      "done": "Analiz tamamlandı",
+      "todo": "Araştırma sürecini başlatın"
+    },
+    "step4": {
+      "title": "Sonuçları İnceleyin",
+      "done": "Rapor, göstergeler ve PDF hazır",
+      "todo": "Analiz bitince açılır"
+    }
+  },
+  "agents": {
+    "supervisor": "Yönetici",
+    "technical_analyst": "Teknik analist",
+    "news_analyst": "Haber analisti",
+    "macro_analyst": "Makro analist",
+    "disclosure_analyst": "KAP analisti"
+  },
+  "tools": {
+    "technical_snapshot": "fiyat göstergeleri",
+    "news_headlines": "haber başlıkları",
+    "macro_snapshot": "makro göstergeler",
+    "disclosure_document": "bildirim belgesi",
+    "prediction_history": "önceki analizler",
+    "list_instruments": "enstrüman listesi"
+  },
+  "errors": {
+    "serviceUnavailable": "Servis şu anda kullanılamıyor",
+    "uploadFailed": "Yükleme başarısız",
+    "analysisIncomplete": "Analiz tamamlanamadı. Lütfen tekrar deneyin.",
+    "analysisFailed": "Analiz başarısız oldu"
+  },
+  "run": {
+    "reason": {
+      "noSelection": "1. adımda en az bir enstrüman seçin",
+      "missingFile": "2. adımda {{symbols}} için fiyat dosyası yükleyin",
+      "uploading": "Yüklemelerin bitmesini bekleyin",
+      "codeQuota": "Bu erişim kodunun analiz hakkı doldu",
+      "dailyQuota": "Bugünkü analiz hakkınız doldu"
+    }
+  },
+  "log": {
+    "handover": "Yönetici görevi devrediyor: {{agent}}",
+    "writing": "Yönetici raporu yazmaya başlıyor",
+    "requests": "{{agent}} istiyor: {{tool}}",
+    "received": "{{agent}} aldı: {{tool}}",
+    "cached": "Önbellekten getirildi: aynı istek kısa süre önce analiz edildi",
+    "complete": "Analiz tamamlandı. Kalite kontrolleri yapıldı.",
+    "incomplete": "Analiz tamamlanamadı",
+    "inputs": "Girdiler doğrulandı: {{symbols}}",
+    "inputFiles_one": ", {{count}} fiyat dosyası",
+    "inputFiles_other": ", {{count}} fiyat dosyası",
+    "inputDocs_one": ", {{count}} belge",
+    "inputDocs_other": ", {{count}} belge",
+    "cancelled": "Analiz iptal edildi"
+  },
+  "app": {
+    "loading": "Investing Engine yükleniyor…",
+    "noResults": "Henüz sonuç yok. Önce 3. adımda analizi çalıştırın.",
+    "goToStep3": "3. adıma git"
+  },
+  "language": {
+    "label": "Arayüz dili"
+  },
+  "header": {
+    "analysesOnCode": "bu kodla yapılan analiz",
+    "analysesToday": "bugünkü analiz",
+    "tagline": "Borsa İstanbul Araştırması",
+    "sampleDataTitle": "Bu sürüm gerçek analiz değil, örnek veri gösterir",
+    "sampleData": "Örnek veri",
+    "expires": "Bitiş: {{date}}",
+    "accessCode": "Erişim kodu {{id}}",
+    "localMode": "Yerel mod",
+    "signOut": "Çıkış yap"
+  },
+  "privacy": {
+    "link": "Gizlilik",
+    "title": "Gizlilik",
+    "items": [
+      "Bu demo adınızı, e-posta adresinizi veya herhangi bir hesap bilgisi istemez.",
+      "Erişim kodu yalnızca rastgele bir numarayı tanımlar. Demo, kodu kimin aldığını kaydetmez.",
+      "Demo, uygulama loglarına IP adresinizi yazmaz.",
+      "Yüklediğiniz fiyat dosyaları en fazla iki saat bellekte tutulur. Onları yalnızca sizin kodunuz kullanabilir.",
+      "Fiyat dosyanızla yapılan analizlerin sonuçlarını yalnızca sizin kodunuz görür. Herkese açık verilerle yapılan analizler (ör. XU100) ortaktır ve sizinle ilgili veri içermez.",
+      "Barındırma platformu kendi güvenliği için teknik loglar (ör. IP adresleri) tutabilir.",
+      "Çıktılar araştırma ve eğitim amaçlıdır. Yatırım tavsiyesi değildir.",
+      "Arayüz Türkçe gösterilebilir. Raporlar İngilizce yazılır."
+    ]
+  },
+  "footer": {
+    "tagline": "Borsa İstanbul araştırması",
+    "about": "Fiyat göstergelerini, haber riskini, makroekonomiyi ve şirket açıklamalarını birleştiren çok ajanlı araştırma. Rapordaki her rakam kaynak veriyle karşılaştırılır."
+  },
+  "auth": {
+    "codeRejected": "Bu erişim kodu kabul edilmedi",
+    "codeLabel": "Erişim kodu",
+    "checking": "Kontrol ediliyor…",
+    "continue": "Devam",
+    "codeHelp": "Kod yalnızca tek bir cihazda çalışır; süre ve analiz sınırı vardır. Hesap ya da kişisel veri gerekmez.",
+    "codeTitle": "Erişim kodunuzu girin",
+    "codeIntro": "Bu, Investing Engine'in özel bir demosudur. Size verilen erişim kodunu girin.",
+    "signInTitle": "Devam etmek için giriş yapın",
+    "signInIntro": "Bu özel bir kurulumdur. Yetkili bir hesapla giriş yapın.",
+    "signIn": "Giriş yap",
+    "refusedTitle": "Erişim reddedildi",
+    "unavailableTitle": "Servis kullanılamıyor",
+    "tryAgain": "Tekrar dene"
+  },
+  "step2": {
+    "title": "Veri ve Bildirimler",
+    "subtitle": "Hisseler için günlük fiyat dosyası (.xlsx veya .csv) gerekir.",
+    "documentsOptional": "KAP bildirimi (.pdf, .png veya .jpg) isteğe bağlıdır.",
+    "documentsOff": "Bu demoda belge yükleme kapalıdır.",
+    "continue": "Analize Geç",
+    "whyTitle": "Hisseler için neden fiyat dosyası gerekiyor?",
+    "whyText": "Borsa İstanbul hisse fiyatları lisanslı veridir. Bu yüzden sistem, kendinizin edinebileceği günlük fiyat dosyasını analiz eder; örneğin aracı kurumunuzdan veya İş Yatırım'dan:",
+    "isyatirimLink": "İş Yatırım tarihsel fiyatlar (Excel indirme)",
+    "uploadAsIs": "Excel dosyasını değiştirmeden yükleyin",
+    "priceFile": "Tarihsel Fiyat Dosyası (.xlsx / .csv)",
+    "priceValidated": "{{rows}} işlem günü, {{start}} – {{end}}",
+    "priceHelp": "İş Yatırım tarihsel fiyat dosyası (.xlsx) veya standart CSV kabul edilir.",
+    "evdsTitle": "Fiyatlar TCMB EVDS'den alınır",
+    "evdsText": "Sistem endeksin günlük kapanış değerlerini Türkiye Cumhuriyet Merkez Bankası'ndan (EVDS) alır. Dosya gerekmez.",
+    "documentFile": "KAP Bildirimi (İsteğe bağlı)",
+    "documentValidated": "{{pages}} sayfa okundu ({{ocr}} sayfa OCR ile)",
+    "documentHelp": "KAP bildirimi veya taranmış hâli (.pdf, .png veya .jpg). Taranmış sayfalar OCR ile okunur.",
+    "documentsOffTitle": "Belge yükleme kapalı",
+    "documentsOffText": "Belgeler kişisel veri içerebilir. Bu yüzden bu demo belge kabul etmez.",
+    "allValidated": "Gerekli tüm fiyat dosyaları doğrulandı.",
+    "missing": "Fiyat dosyası eksik: {{symbols}}",
+    "continueRun": "Analiz Adımına Geç"
+  },
+  "upload": {
+    "inputLabel": "{{symbol}} için dosya yükle - {{label}}",
+    "uploading": "Yükleniyor ve doğrulanıyor…",
+    "validated": "Doğrulandı",
+    "failed": "Yükleme başarısız",
+    "drop": "Dosyayı buraya sürükleyin veya seçmek için tıklayın.",
+    "replace": "Değiştir",
+    "remove": "Kaldır",
+    "select": "Dosya seç"
+  },
+  "stage": {
+    "status": {
+      "running": "Çalışıyor",
+      "done": "Tamamlandı",
+      "not_needed": "Gerekmedi",
+      "failed": "Başarısız",
+      "waiting": "Bekliyor"
+    }
+  },
+  "stages": {
+    "verify_inputs": "Girdileri doğrula",
+    "plan_analysis": "Analizi planla",
+    "technical_analysis": "Teknik analiz",
+    "news_risk": "Haber riski",
+    "macro_backdrop": "Makro görünüm",
+    "disclosures": "KAP bildirimleri",
+    "write_report": "Raporu yaz",
+    "quality_checks": "Kalite kontrolleri"
+  },
+  "step3": {
+    "title": "Çok Ajanlı Analizi Çalıştırın",
+    "subtitle": "Yönetici ajan işi dört uzmana dağıtır (teknik, haber riski, makro, KAP bildirimleri). Her aşama ve her veri isteği burada anlık olarak görünür.",
+    "cancel": "İptal",
+    "runAgain": "Tekrar çalıştır",
+    "viewResults": "Sonuçları gör",
+    "start": "Analizi başlat",
+    "pipelineTitle": "8 aşamalı çok ajanlı süreç",
+    "pipelineSubtitle": "Ajan devirleri ve veri istekleri",
+    "tools": "Araçlar:",
+    "logTitle": "Aktivite kaydı (24 saat)",
+    "events_one": "{{count}} olay",
+    "events_other": "{{count}} olay",
+    "logEmpty": "Hazır. Başlamak için “Analizi başlat” düğmesine basın.",
+    "draftTitle": "Rapor taslağı",
+    "writing": "Yazılıyor…",
+    "draftEmpty": "Yöneticinin rapor taslağı burada anlık olarak görünecek."
+  },
+  "signal": {
+    "bullish": "Yükseliş",
+    "bearish": "Düşüş",
+    "neutral": "Nötr"
+  },
+  "step4": {
+    "cached": "Önbellekten",
+    "title": "Sonuçları İnceleyin",
+    "subtitle": "Rapor, kalite kontrolleri, her enstrümanın göstergeleri ve haber riski geçmişi.",
+    "servedFromCache": "Önbellekten getirildi",
+    "downloadPdf": "PDF indir",
+    "reportTab": "Rapor",
+    "tiles": {
+      "grounded": "Doğrulanan rakamlar",
+      "allMatched": "Tümü eşleşti",
+      "checked": "Kontrol edilen rakam",
+      "figures": "rakam",
+      "injections": "Temizlenen enjeksiyon",
+      "tokens": "LLM token",
+      "tokensUnit": "token",
+      "duration": "Süre"
+    },
+    "warn": {
+      "skippedTitle": "Zorunlu bir analiz atlandı",
+      "skippedText": "Yönetici şu uzmanlara danışmadı: {{agents}}. Raporda bu alanlarla ilgili bulgu yok. Eksiksiz rapor için analizi tekrar çalıştırın.",
+      "ungroundedTitle": "Veriyle eşleşmeyen rakamlar",
+      "ungroundedText": "Rapordaki şu sayılar veri araçlarından gelen hiçbir değerle eşleşmiyor:",
+      "unexpectedTitle": "Raporda beklenmeyen semboller",
+      "unexpectedText": "Rapor, seçmediğiniz sembollerden bahsediyor: {{symbols}}",
+      "injectionTitle": "Talimat enjeksiyonu girişimleri temizlendi",
+      "injectionText_one": "Üçüncü taraf metinde {{count}} şüpheli talimat bulundu ve ajanlar okumadan önce temizlendi ({{flags}}).",
+      "injectionText_other": "Üçüncü taraf metinde {{count}} şüpheli talimat bulundu ve ajanlar okumadan önce temizlendi ({{flags}})."
+    },
+    "instrumentType": "Enstrüman türü:",
+    "signal": "Sinyal:",
+    "notAvailable": "yok",
+    "noRiskScore": "Haber analisti bu analizde {{symbol}} için risk skoru vermedi.",
+    "sources": "Veri kaynakları"
+  },
+  "risk": {
+    "title": "Haber riski",
+    "subtitle": "{{symbol}} için son haber başlıkları ve bildirimlerden",
+    "subtitleNoSymbol": "Son haber başlıklarından",
+    "band": "Seviye:",
+    "bands": {
+      "low": "Düşük risk",
+      "moderate": "Orta risk",
+      "high": "Yüksek risk"
+    },
+    "levels": {
+      "low": "Düşük",
+      "moderate": "Orta",
+      "high": "Yüksek"
+    },
+    "meterLabel": "Haber riski skoru 10 üzerinden {{score}}, {{band}}",
+    "descriptions": {
+      "low": "Haber başlıklarında az sayıda olumsuz gelişme var.",
+      "moderate": "Haber başlıklarında olağan piyasa haberleri ile bazı endişeler bir arada.",
+      "high": "Haber başlıklarında ciddi endişeler var; örneğin anlaşmazlıklar, davalar veya düzenleyici işlemleri."
+    }
+  },
+  "indicators": {
+    "points": "{{value}} puan",
+    "priceHintIndex": "Endeksin günlük kapanışı (TCMB EVDS)",
+    "priceHintEquity": "Yüklenen fiyat dosyasındaki son kapanış",
+    "title": "Teknik göstergeler",
+    "subtitle": "Teknik analistin {{symbol}} için kullandığı değerler",
+    "source": "Kaynak: technical_snapshot aracı",
+    "tableLabel": "{{symbol}} teknik göstergeleri",
+    "colIndicator": "Gösterge",
+    "colValue": "Değer",
+    "colContext": "Anlamı",
+    "rows": {
+      "price": {
+        "label": "Son kapanış"
+      },
+      "signal": {
+        "label": "Sinyal",
+        "hint": "Tahmini RSI'dan: 30'un altı yükseliş, 70'in üstü düşüş, arası nötr"
+      },
+      "rsi": {
+        "label": "RSI (14)",
+        "hint": "14 günlük göreceli güç endeksi"
+      },
+      "predicted_next_rsi": {
+        "label": "Tahmini sonraki RSI",
+        "hint": "Sonraki işlem günü için RandomForest RSI tahmini"
+      },
+      "ema34": {
+        "label": "EMA 34",
+        "hint": "34 günlük üssel hareketli ortalama"
+      },
+      "ema89": {
+        "label": "EMA 89",
+        "hint": "89 günlük üssel hareketli ortalama"
+      },
+      "price_above_ema34": {
+        "label": "Kapanış EMA 34'ün üstünde",
+        "hint": "Kısa vadeli trend filtresi"
+      },
+      "macd": {
+        "label": "MACD (12, 26)",
+        "hint": "MACD çizgisi: EMA 12 eksi EMA 26"
+      },
+      "bb_pct": {
+        "label": "Bollinger %B",
+        "hint": "Kapanışın 20 günlük, 2σ bant içindeki yeri: 0 = alt bant, 1 = üst bant"
+      },
+      "channel_position": {
+        "label": "Kanal konumu",
+        "hint": "Kapanışın 20 günlük aralıktaki yeri: alt, orta veya üst"
+      },
+      "momentum_divergence": {
+        "label": "Momentum uyumsuzluğu",
+        "hint": "Son 5 günde RSI ve fiyat ters yönde hareket etti"
+      },
+      "as_of": {
+        "label": "Tarih",
+        "hint": "Son fiyatın tarihi"
+      },
+      "source": {
+        "label": "Fiyat kaynağı",
+        "hint": "Fiyatların veri kaynağı"
+      }
+    }
+  },
+  "history": {
+    "empty": "{{symbol}} için kayıtlı önceki analiz yok.",
+    "title": "Haber riski geçmişi",
+    "subtitle": "{{symbol}} için önceki analizlerin haber riski skorları",
+    "chart": "Grafik",
+    "table": "Tablo",
+    "chartLabel": "{{symbol}} risk skoru geçmişi grafiği",
+    "pointLabel": "{{date}} analizi: skor {{score}}, sinyal {{signal}}",
+    "riskScore": "Risk skoru",
+    "price": "Analiz anındaki fiyat",
+    "signal": "Sinyal",
+    "date": "Tarih",
+    "visibleTo": "Görebilen",
+    "onlyYou": "Yalnızca siz",
+    "allUsers": "Tüm kullanıcılar"
+  }
+}

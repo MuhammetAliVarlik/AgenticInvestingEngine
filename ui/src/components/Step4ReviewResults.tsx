@@ -19,6 +19,7 @@ import {
   TrendingDown,
   Minus
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Step4ReviewResultsProps {
   finalResult: StreamFinalEvent;
@@ -31,6 +32,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
   selectedSymbols,
   instruments
 }) => {
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>('report');
   const [historyCache, setHistoryCache] = useState<Record<string, HistoricalPrediction[]>>({});
   const [loadingHistory, setLoadingHistory] = useState<Record<string, boolean>>({});
@@ -68,11 +70,13 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
   const checkedFigures = checks.checked_figures ?? '—';
   const injectionAttempts = finalResult.injection_flags?.length || 0;
   const seconds = finalResult.timings?.total_seconds;
-  const duration = finalResult.cached ? 'Cached' : typeof seconds === 'number' ? `${seconds.toFixed(1)}s` : '—';
+  const duration = finalResult.cached ? t('step4.cached') : typeof seconds === 'number' ? `${seconds.toFixed(1)} s` : '—';
+  const missingSpecialists = checks.missing_specialists ?? [];
 
   const hasWarnings =
     (checks.ungrounded_figures && checks.ungrounded_figures.length > 0) ||
     (checks.unexpected_symbols && checks.unexpected_symbols.length > 0) ||
+    missingSpecialists.length > 0 ||
     injectionAttempts > 0;
 
   return (
@@ -85,11 +89,11 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
               4
             </span>
             <h2 id="step4-heading" className="text-base font-bold bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-900 dark:from-white dark:via-sky-100 dark:to-indigo-200 bg-clip-text text-transparent sm:text-lg">
-              Review Research Results
+              {t('step4.title')}
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            The report, the quality checks, the indicators of each instrument and the news risk history.
+            {t('step4.subtitle')}
           </p>
         </div>
 
@@ -97,7 +101,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
         <div className="flex items-center gap-2">
           {finalResult.cached && (
             <span className="rounded-xl border border-white/60 bg-white/60 px-2.5 py-1 text-[11px] font-semibold text-slate-600 backdrop-blur-md dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-300">
-              Served from cache
+              {t('step4.servedFromCache')}
             </span>
           )}
           {pdfUrl && (
@@ -107,7 +111,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 via-indigo-600 to-sky-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-sky-600/25 hover:from-sky-500 hover:to-indigo-500 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
           >
             <Download className="h-4 w-4" />
-            <span>Download PDF</span>
+            <span>{t('step4.downloadPdf')}</span>
           </a>
           )}
         </div>
@@ -127,7 +131,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
           role="tab"
         >
           <Layers className="h-4 w-4" />
-          <span>Report</span>
+          <span>{t('step4.reportTab')}</span>
         </button>
 
         {selectedSymbols.map((sym) => {
@@ -169,7 +173,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
             {/* Figures grounded */}
             <div className="glass-card rounded-2xl p-4.5">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Figures grounded
+                {t('step4.tiles.grounded')}
               </span>
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span className="font-mono text-2xl font-black tracking-tight bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent dark:from-emerald-400 dark:to-teal-300 tabular-nums">
@@ -177,7 +181,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
                 </span>
                 {fullyGrounded && (
                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                    All matched
+                    {t('step4.tiles.allMatched')}
                   </span>
                 )}
               </div>
@@ -186,20 +190,20 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
             {/* Figures checked */}
             <div className="glass-card rounded-2xl p-4.5">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Figures checked
+                {t('step4.tiles.checked')}
               </span>
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span className="font-mono text-2xl font-black tracking-tight bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-indigo-300 tabular-nums">
                   {checkedFigures}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">figures</span>
+                <span className="text-[11px] text-slate-400 font-medium">{t('step4.tiles.figures')}</span>
               </div>
             </div>
 
             {/* Injection Attempts Removed */}
             <div className="glass-card rounded-2xl p-4.5">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Injections removed
+                {t('step4.tiles.injections')}
               </span>
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span
@@ -218,20 +222,20 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
             {/* LLM Tokens */}
             <div className="glass-card rounded-2xl p-4.5">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                LLM tokens
+                {t('step4.tiles.tokens')}
               </span>
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span className="font-mono text-2xl font-black tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-purple-300 tabular-nums">
-                  {totalTokens.toLocaleString('tr-TR')}
+                  {totalTokens.toLocaleString(i18n.resolvedLanguage)}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">tokens</span>
+                <span className="text-[11px] text-slate-400 font-medium">{t('step4.tiles.tokensUnit')}</span>
               </div>
             </div>
 
             {/* Duration */}
             <div className="glass-card rounded-2xl p-4.5 col-span-2 sm:col-span-1">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Duration
+                {t('step4.tiles.duration')}
               </span>
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span className="font-mono text-2xl font-black tracking-tight bg-gradient-to-r from-sky-600 to-teal-500 bg-clip-text text-transparent dark:from-sky-400 dark:to-teal-300 tabular-nums">
@@ -245,14 +249,30 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
           {/* Warnings Banner for ungrounded figures / unexpected symbols / injection flags */}
           {hasWarnings && (
             <div className="space-y-3">
+              {missingSpecialists.length > 0 && (
+                <div className="rounded-2xl border border-amber-300/60 bg-gradient-to-r from-amber-500/10 to-orange-500/5 p-4 text-xs backdrop-blur-md dark:border-amber-500/30">
+                  <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold">{t('step4.warn.skippedTitle')}</h4>
+                      <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                        {t('step4.warn.skippedText', {
+                          agents: missingSpecialists.map((a) => t(`agents.${a}`)).join(', '),
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {checks.ungrounded_figures && checks.ungrounded_figures.length > 0 && (
                 <div className="rounded-2xl border border-amber-300/60 bg-gradient-to-r from-amber-500/10 to-orange-500/5 p-4 text-xs backdrop-blur-md dark:border-amber-500/30">
                   <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                     <div>
-                      <h4 className="font-bold">Ungrounded Numerical Figures Detected</h4>
+                      <h4 className="font-bold">{t('step4.warn.ungroundedTitle')}</h4>
                       <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                        These numbers in the report do not agree with any value from the data tools:
+                        {t('step4.warn.ungroundedText')}
                       </p>
                       <ul className="mt-1.5 list-disc list-inside font-mono text-[11px]">
                         {checks.ungrounded_figures.map((fig, i) => (
@@ -269,9 +289,9 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
                   <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
                     <div>
-                      <h4 className="font-bold">Unexpected Stock Tickers Referenced</h4>
+                      <h4 className="font-bold">{t('step4.warn.unexpectedTitle')}</h4>
                       <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                        The report mentioned symbols outside your selected scope: {checks.unexpected_symbols.join(', ')}
+                        {t('step4.warn.unexpectedText', { symbols: checks.unexpected_symbols.join(', ') })}
                       </p>
                     </div>
                   </div>
@@ -283,9 +303,9 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
                   <div className="flex items-start gap-2.5 text-rose-900 dark:text-rose-200">
                     <ShieldAlert className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
                     <div>
-                      <h4 className="font-bold">Prompt Injection Attempts Neutralized</h4>
+                      <h4 className="font-bold">{t('step4.warn.injectionTitle')}</h4>
                       <p className="mt-0.5 text-rose-800 dark:text-rose-300">
-                        {injectionAttempts} suspicious instruction pattern(s) in third-party text were found and removed before the agents read it ({finalResult.injection_flags.join(', ')}).
+                        {t('step4.warn.injectionText', { count: injectionAttempts, flags: finalResult.injection_flags.join(', ') })}
                       </p>
                     </div>
                   </div>
@@ -343,14 +363,22 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      Instrument type: <span className="capitalize font-semibold">{inst?.kind ?? '—'}</span>
+                      {t('step4.instrumentType')}{' '}
+                      <span className="font-semibold">{inst ? t(`common.kind.${inst.kind}`) : '—'}</span>
                     </p>
                   </div>
 
                   {/* Signal Badge: Explicit icon + label (never color alone) */}
                   <div className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold shadow-xs backdrop-blur-md ${signalClass}`}>
                     <SignalIcon className="h-4 w-4" aria-hidden="true" />
-                    <span>Signal: <strong className="capitalize">{technicalData.signal ? String(technicalData.signal) : 'not available'}</strong></span>
+                    <span>
+                      {t('step4.signal')}{' '}
+                      <strong>
+                        {technicalData.signal
+                          ? t(`signal.${String(technicalData.signal).toLowerCase()}`, { defaultValue: String(technicalData.signal) })
+                          : t('step4.notAvailable')}
+                      </strong>
+                    </span>
                   </div>
                 </div>
 
@@ -359,7 +387,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
                   <NewsRiskMeter score={riskScore} symbol={sym} />
                 ) : (
                   <div className="glass-panel rounded-2xl p-5 text-xs text-slate-600 dark:text-slate-400">
-                    The news analyst did not give a risk score for {sym} in this analysis.
+                    {t('step4.noRiskScore', { symbol: sym })}
                   </div>
                 )}
 
@@ -382,7 +410,7 @@ export const Step4ReviewResults: React.FC<Step4ReviewResultsProps> = ({
       {finalResult.sources && finalResult.sources.length > 0 && (
         <div className="glass-panel rounded-2xl p-6 shadow-sm">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3.5">
-            Source Attributions & Data Feeds
+            {t('step4.sources')}
           </h4>
           <dl className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 text-xs">
             {finalResult.sources.map((src, i) => (
