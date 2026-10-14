@@ -9,7 +9,7 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "i18next": "26.4.2",
+    "i18next": "26.4.3",
     "i18next-browser-languagedetector": "8.2.1",
     "lucide-react": "1.52.0",
     "react": "19.3.0",
