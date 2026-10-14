@@ -33,7 +33,7 @@ jobs:
           echo "api=${REGISTRY}/${owner}/investing-engine-api:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
           echo "ui=${REGISTRY}/${owner}/investing-engine-ui:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
