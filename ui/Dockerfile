@@ -9,7 +9,7 @@ COPY src ./src
 RUN npm run build
 
 # ---- Gateway: serves the app, signs users in, relays calls to the API ------------
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
