@@ -11,7 +11,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Muhammet Ali Varlik" }]
 requires-python = ">=3.10"
 dependencies = [
-    "cachetools==7.1.7",
+    "cachetools==7.2.1",
     "fastapi==0.142.2",
     "httpx==0.28.1",
     "jinja2==3.1.6",
