@@ -25,7 +25,7 @@ jobs:
       api: ${{ steps.tags.outputs.api }}
       ui: ${{ steps.tags.outputs.ui }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: tags
         run: |
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: azure/login@v3
         with:
